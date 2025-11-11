@@ -3,640 +3,796 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Quiz Blueprint Tool - Standalone</title>
-  <meta name="description" content="Standalone Quiz Builder, Player, and Export - self-contained" />
+  <title>Quiz Blueprint Tool — Standalone</title>
+
+  <!-- Tailwind via CDN (Option A) -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Minimal UI styles (kept as-is from previous build) */
-    :root { --bg:#0f1724; --card:#0b1220; --muted:#9fb6bc; --accent:#10b981; --primary:#06b6d4; --primary-hover:#0891b2; --text:#e6eef8; }
-    html,body{height:100%;margin:0;background:var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;color:var(--text);}
-    #quiz-builder-root { padding:18px; max-width:1200px; margin:20px auto; }
-    .qb-app { display:flex; gap:16px; background:linear-gradient(180deg,#071022,#071428); border-radius:12px; border:1px solid #0f1724; padding:18px; box-sizing:border-box; }
-    .qb-sidebar { width:320px; background:var(--card); padding:14px; border-radius:10px; border:1px solid #111827; box-sizing:border-box; }
-    .qb-main { flex:1; background:linear-gradient(180deg,#071022,#071428); padding:16px; border-radius:10px; min-height:560px; border:1px solid #0f1724; box-sizing:border-box; }
-    .qb-title { font-weight:800; font-size:18px; color:#9df0d7; display:flex; justify-content:space-between; align-items:center; gap:8px; }
-    .qb-section { margin-top:12px; }
-    input[type="text"], input[type="url"], textarea, select {
-      width:100%; padding:8px; background:#061226; border:1px solid #1f2937; color:var(--text); border-radius:6px; box-sizing:border-box;
-    }
-    button { cursor:pointer; border: none; padding:8px 10px; border-radius:8px; background:var(--primary); color:#071022; font-weight:700; }
-    .ghost { background:transparent; border:1px dashed #2b3945; color:#cbd5e1; padding:6px 8px; }
-    .list-item { display:flex; align-items:center; justify-content:space-between; padding:8px; border-radius:8px; background:#071022; margin-bottom:8px; border:1px solid #111827; color:#cfe9e6; }
-    .small { font-size:13px; color:#9fb6bc; }
-    .options-list { margin-top:8px; }
-    .option-row { display:flex; gap:8px; margin-bottom:8px; }
-    .color-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
-    .preview-area { max-width:640px; margin:0 auto; }
-    pre { background:#041024; padding:12px; color:#9fe0c9; border-radius:8px; overflow:auto; max-height:420px; }
-    .flex { display:flex; gap:8px; align-items:center; }
-    .muted { color:#8aa0a6; font-size:13px; }
-    .danger { background:#ef4444; color:#fff; }
-    .inline-btn { padding:6px 8px; border-radius:6px; background:#1f2937; color:#dbeafe; border:1px solid #111827; cursor:pointer; }
-    label { font-size:13px; color:#9fb6bc; display:block; margin-bottom:6px; }
-    .quiz-embed { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; padding:20px; max-width:640px; margin:0 auto; }
+    /* Small helper styles */
+    .transition-fast { transition: all .15s ease; }
+    .card-shadow { box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05); }
+    pre.code-block { white-space: pre-wrap; word-break: break-word; }
+    /* Optionally ensure color input not ugly on some browsers */
+    input[type="color"] { border: none; padding: 0; height: 36px; width:36px; }
   </style>
 </head>
-<body>
-  <div id="quiz-builder-root"></div>
+<body class="min-h-screen bg-gray-900 text-gray-100 font-sans p-4">
 
-  <script>
-  (function(){
-    // ---------- INITIAL DATA ----------
-    const DEFAULT_COLORS = {
-      bgColor: '#0b1220',
-      textColor: '#e6eef8',
-      primaryColor: '#06b6d4',
-      primaryHover: '#0891b2',
-      accentColor: '#10b981'
-    };
+<!-- Top bar -->
+<div class="mb-4 flex justify-between items-center p-3 bg-gray-800 rounded-xl card-shadow border border-gray-700">
+  <div class="flex items-center">
+    <svg class="w-6 h-6 mr-3 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 12H2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+    <h1 class="text-xl font-extrabold">Quiz Blueprint Tool</h1>
+  </div>
+  <div class="flex items-center space-x-3">
+    <span id="saveStatus" class="text-sm text-gray-400 flex items-center">
+      <svg class="inline w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11"></path><path d="M7 10l5 5 5-9"></path></svg>
+      Ready
+    </span>
+    <button id="toggleModeBtn" class="px-3 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-white transition-fast">Switch to Player</button>
+  </div>
+</div>
 
-    const INITIAL = {
-      title: "Untitled Transformation Quiz",
-      description: "Discover your personalized plan by answering a few quick questions.",
-      logoUrl: "",
-      startId: "q1",
-      colors: {...DEFAULT_COLORS},
-      questions: {
-        "q1": { text: "What is your current fitness level?", options: [
-          { id: "o1", text: "Beginner", next: "q2" },
-          { id: "o2", text: "Intermediate", next: "q2" },
-          { id: "o3", text: "Advanced", next: "r_pro" }
-        ]},
-        "q2": { text: "How many hours a week can you dedicate to training?", options: [
-          { id: "o4", text: "1-3 hours (Casual)", next: "r_low_effort" },
-          { id: "o5", text: "4-6 hours (Moderate)", next: "r_medium" }
-        ]}
-      },
-      results: {
-        "r_low_effort": { title: "Your Sustainable Plan", content: "Focus on consistency and diet first. We recommend two 30-minute sessions per week.", buttonText:"Get My Quick Start Guide", buttonUrl:"https://example.com/quick-start" },
-        "r_medium": { title: "Your Intermediate Plan", content: "You are ready for a 4-day split routine focusing on progressive overload.", buttonText:"See Intermediate Products", buttonUrl:"https://example.com/products/intermediate" },
-        "r_pro": { title: "Your Advanced Optimization Plan", content: "We will refine your current routine with periodization and specific recovery techniques.", buttonText:"Book a Consultation", buttonUrl:"https://example.com/consultation" }
-      }
-    };
+<!-- Main app area -->
+<div id="appRoot" class="min-h-[650px]">
+  <!-- content injected by JS -->
+</div>
 
-    // ---------- STORAGE ----------
-    const STORAGE_KEY = 'qb-standalone-data-v1';
-    function loadState(){
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if(!raw) return JSON.parse(JSON.stringify(INITIAL));
-        const parsed = JSON.parse(raw);
-        const merged = {...INITIAL, ...parsed, colors: {...DEFAULT_COLORS, ...(parsed.colors||{})}, questions: {...INITIAL.questions, ...(parsed.questions||{})}, results: {...INITIAL.results, ...(parsed.results||{})}};
-        if(!merged.startId || (!merged.questions[merged.startId] && !merged.results[merged.startId])) merged.startId = Object.keys(merged.questions)[0] || '';
-        return merged;
-      } catch(e){
-        console.error(e);
-        return JSON.parse(JSON.stringify(INITIAL));
-      }
-    }
-    function saveState(state){
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch(e){
-        console.error('Failed saving', e);
-      }
-    }
-
-    // ---------- STATE ----------
-    let state = loadState();
-    let selectedId = state.startId || Object.keys(state.questions)[0];
-
-    // ---------- DOM ROOT ----------
-    const root = document.getElementById('quiz-builder-root');
-
-    // ---------- HELPERS ----------
-    function uid(prefix='id'){ return prefix + Math.random().toString(36).slice(2,9); }
-    function isResult(id){ return id && id.startsWith('r'); }
-    function availableNodesForSelect(){
-      const out = [];
-      for(const id of Object.keys(state.questions)) out.push({ id, label: 'Q: ' + (state.questions[id].text||id) });
-      for(const id of Object.keys(state.results)) out.push({ id, label: 'R: ' + (state.results[id].title||id) });
-      return out;
-    }
-
-    // ---------- RENDER ----------
-    function render(){
-      saveState(state);
-      root.innerHTML = '';
-      const app = document.createElement('div');
-      app.className = 'qb-app';
-
-      // Sidebar
-      const sidebar = document.createElement('div');
-      sidebar.className = 'qb-sidebar';
-      sidebar.innerHTML = `
-        <div class="qb-title">Quiz Builder <span class="small muted">vanilla</span></div>
-
-        <div class="qb-section">
-          <label>Title</label>
-          <input id="sb-title" type="text" value="${escapeHtml(state.title)}" />
-          <label style="margin-top:8px;">Description</label>
-          <textarea id="sb-desc" rows="3">${escapeHtml(state.description)}</textarea>
-          <label style="margin-top:8px;">Logo URL (optional)</label>
-          <input id="sb-logo" type="url" value="${escapeHtml(state.logoUrl)}" />
-          <label style="margin-top:8px;">Start Node</label>
-          <select id="sb-start"></select>
-        </div>
-
-        <div class="qb-section">
-          <label class="small">Questions</label>
-          <div id="list-questions"></div>
-          <button id="add-question" style="margin-top:8px;" class="inline-btn">+ Add Question</button>
-        </div>
-
-        <div class="qb-section">
-          <label class="small">Results</label>
-          <div id="list-results"></div>
-          <button id="add-result" style="margin-top:8px;" class="inline-btn">+ Add Result</button>
-        </div>
-
-        <div class="qb-section">
-          <label class="small">Colors</label>
-          <div class="color-row"><input id="c-bg" type="color" value="${state.colors.bgColor}" /> <input id="c-bg-t" type="text" value="${state.colors.bgColor}" /></div>
-          <div class="color-row"><input id="c-text" type="color" value="${state.colors.textColor}" /> <input id="c-text-t" type="text" value="${state.colors.textColor}" /></div>
-          <div class="color-row"><input id="c-primary" type="color" value="${state.colors.primaryColor}" /> <input id="c-primary-t" type="text" value="${state.colors.primaryColor}" /></div>
-          <div class="color-row"><input id="c-primary-hover" type="color" value="${state.colors.primaryHover}" /> <input id="c-primary-hover-t" type="text" value="${state.colors.primaryHover}" /></div>
-          <div class="color-row"><input id="c-accent" type="color" value="${state.colors.accentColor}" /> <input id="c-accent-t" type="text" value="${state.colors.accentColor}" /></div>
-        </div>
-
-        <div class="qb-section">
-          <div class="flex" style="justify-content:space-between;">
-            <button id="to-player" class="inline-btn">Preview Player</button>
-            <button id="to-export" class="inline-btn">Export Embed</button>
-          </div>
-          <div style="margin-top:10px;"><button id="reset-data" class="danger">Reset to Defaults</button></div>
-        </div>
-      `;
-
-      // fill lists
-      app.appendChild(sidebar);
-
-      const main = document.createElement('div');
-      main.className = 'qb-main';
-      main.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <div style="font-size:18px; font-weight:800; color:#9df0d7;">Editing: <span id="editing-label">${escapeHtml(selectedId||'')}</span></div>
-            <div class="muted" style="margin-top:6px;">Edit the selected node below. Click items in the lists to pick them.</div>
-          </div>
-          <div style="display:flex; gap:8px;">
-            <button id="save-now" class="inline-btn">Save</button>
-            <button id="switch-player" class="inline-btn">Open Player</button>
-          </div>
-        </div>
-
-        <div id="editor-pane" style="margin-top:12px;"></div>
-
-        <div id="preview-pane" style="margin-top:18px;"></div>
-      `;
-
-      app.appendChild(main);
-
-      root.appendChild(app);
-
-      // populate start select
-      const startSelect = sidebar.querySelector('#sb-start');
-      startSelect.innerHTML = '';
-      availableNodesForSelect().forEach(n => {
-        const opt = document.createElement('option');
-        opt.value = n.id;
-        opt.textContent = `${n.label} (${n.id})`;
-        if(n.id === state.startId) opt.selected = true;
-        startSelect.appendChild(opt);
-      });
-
-      // populate question/result lists
-      const qList = sidebar.querySelector('#list-questions');
-      qList.innerHTML = '';
-      for(const id of Object.keys(state.questions)){
-        const el = document.createElement('div');
-        el.className = 'list-item';
-        el.innerHTML = `<div style="max-width:190px"><strong>${escapeHtml(state.questions[id].text||id)}</strong><div class="small muted">${id}</div></div>
-                        <div style="display:flex; gap:6px;">
-                          <button class="inline-btn select-q" data-id="${id}">Edit</button>
-                          <button class="inline-btn remove-q" data-id="${id}">Del</button>
-                        </div>`;
-        qList.appendChild(el);
-      }
-      const rList = sidebar.querySelector('#list-results');
-      rList.innerHTML = '';
-      for(const id of Object.keys(state.results)){
-        const el = document.createElement('div');
-        el.className = 'list-item';
-        el.innerHTML = `<div style="max-width:190px"><strong>${escapeHtml(state.results[id].title||id)}</strong><div class="small muted">${id}</div></div>
-                        <div style="display:flex; gap:6px;">
-                          <button class="inline-btn select-r" data-id="${id}">Edit</button>
-                          <button class="inline-btn remove-r" data-id="${id}">Del</button>
-                        </div>`;
-        rList.appendChild(el);
-      }
-
-      // ---------- HOOKS ----------
-      // sidebar inputs
-      sidebar.querySelector('#sb-title').addEventListener('input', e=>{ state.title = e.target.value; saveState(state); });
-      sidebar.querySelector('#sb-desc').addEventListener('input', e=>{ state.description = e.target.value; saveState(state); });
-      sidebar.querySelector('#sb-logo').addEventListener('input', e=>{ state.logoUrl = e.target.value; saveState(state); });
-      startSelect.addEventListener('change', e=>{ state.startId = e.target.value; saveState(state); });
-
-      // color inputs binding
-      function bindColor(idColor, idText, key){
-        const c = sidebar.querySelector(idColor);
-        const t = sidebar.querySelector(idText);
-        c.addEventListener('input', e=>{ state.colors[key]=e.target.value; t.value=e.target.value; renderEditor(); saveState(state); });
-        t.addEventListener('input', e=>{ state.colors[key]=e.target.value; c.value=e.target.value; renderEditor(); saveState(state); });
-      }
-      bindColor('#c-bg','#c-bg-t','bgColor');
-      bindColor('#c-text','#c-text-t','textColor');
-      bindColor('#c-primary','#c-primary-t','primaryColor');
-      bindColor('#c-primary-hover','#c-primary-hover-t','primaryHover');
-      bindColor('#c-accent','#c-accent-t','accentColor');
-
-      // add question/result buttons
-      sidebar.querySelector('#add-question').addEventListener('click', ()=>{
-        const id = uid('q');
-        state.questions[id] = { text: 'New Question', options: [{ id: uid('o'), text:'Option A', next: state.startId || Object.keys(state.questions)[0] || Object.keys(state.results)[0] || '' }] };
-        selectedId = id;
-        render();
-        renderEditor();
-      });
-      sidebar.querySelector('#add-result').addEventListener('click', ()=>{
-        const id = uid('r');
-        state.results[id] = { title: 'New Result', content: 'Result content...', buttonText:'', buttonUrl:'' };
-        selectedId = id;
-        render();
-        renderEditor();
-      });
-
-      // delete handlers
-      qList.querySelectorAll('.remove-q').forEach(btn=> btn.addEventListener('click', (ev)=>{
-        const id = ev.currentTarget.dataset.id;
-        delete state.questions[id];
-        Object.values(state.questions).forEach(q => q.options = q.options.map(o => o.next===id ? state.startId : o));
-        if(selectedId===id) selectedId = Object.keys(state.questions)[0] || Object.keys(state.results)[0] || '';
-        render();
-        renderEditor();
-      }));
-      rList.querySelectorAll('.remove-r').forEach(btn=> btn.addEventListener('click', (ev)=>{
-        const id = ev.currentTarget.dataset.id;
-        delete state.results[id];
-        Object.values(state.questions).forEach(q => q.options = q.options.map(o => o.next===id ? state.startId : o));
-        if(selectedId===id) selectedId = Object.keys(state.questions)[0] || Object.keys(state.results)[0] || '';
-        render();
-        renderEditor();
-      }));
-
-      // edit selection handlers
-      qList.querySelectorAll('.select-q').forEach(btn=> btn.addEventListener('click', (ev)=>{
-        selectedId = ev.currentTarget.dataset.id;
-        document.getElementById('editing-label').textContent = selectedId;
-        renderEditor();
-      }));
-      rList.querySelectorAll('.select-r').forEach(btn=> btn.addEventListener('click', (ev)=>{
-        selectedId = ev.currentTarget.dataset.id;
-        document.getElementById('editing-label').textContent = selectedId;
-        renderEditor();
-      }));
-
-      // reset
-      sidebar.querySelector('#reset-data').addEventListener('click', ()=>{
-        if(!confirm('Reset quiz to defaults? This will overwrite current data.')) return;
-        state = JSON.parse(JSON.stringify(INITIAL));
-        selectedId = state.startId;
-        saveState(state);
-        render();
-        renderEditor();
-      });
-
-      // quick Save
-      main.querySelector('#save-now').addEventListener('click', ()=>{ saveState(state); alert('Saved locally'); });
-
-      // switch to player preview
-      main.querySelector('#switch-player').addEventListener('click', ()=>{ renderPlayerModal(); });
-
-      // Preview and Export buttons
-      sidebar.querySelector('#to-player').addEventListener('click', ()=>{ renderPlayerModal(); });
-      sidebar.querySelector('#to-export').addEventListener('click', ()=>{ renderExport(); });
-
-      // initial editor render
-      renderEditor();
-    } // end render()
-
-    // ---------- Editor Pane ----------
-    function renderEditor(){
-      const editor = document.querySelector('#editor-pane');
-      const previewPane = document.querySelector('#preview-pane');
-      if(!editor) return;
-      editor.innerHTML = '';
-      previewPane.innerHTML = '';
-
-      // selected node
-      if(!selectedId){
-        editor.innerHTML = `<div class="muted">No node selected. Create a question or result to begin.</div>`;
-        return;
-      }
-
-      if(isResult(selectedId)){
-        const r = state.results[selectedId];
-        if(!r) { editor.innerHTML = `<div class="muted">Missing result data.</div>`; return; }
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = `
-          <label>Result ID</label>
-          <div class="small muted">${selectedId}</div>
-          <label style="margin-top:8px;">Title</label>
-          <input id="res-title" type="text" value="${escapeHtml(r.title||'')}" />
-          <label style="margin-top:8px;">Content</label>
-          <textarea id="res-content" rows="6">${escapeHtml(r.content||'')}</textarea>
-          <label style="margin-top:8px;">Button Text (optional)</label>
-          <input id="res-button-text" type="text" value="${escapeHtml(r.buttonText||'')}" />
-          <label style="margin-top:8px;">Button URL (optional)</label>
-          <input id="res-button-url" type="url" value="${escapeHtml(r.buttonUrl||'')}" />
-        `;
-        editor.appendChild(wrapper);
-
-        wrapper.querySelector('#res-title').addEventListener('input', e=>{ r.title = e.target.value; saveState(state); render(); });
-        wrapper.querySelector('#res-content').addEventListener('input', e=>{ r.content = e.target.value; saveState(state); });
-        wrapper.querySelector('#res-button-text').addEventListener('input', e=>{ r.buttonText = e.target.value; saveState(state); });
-        wrapper.querySelector('#res-button-url').addEventListener('input', e=>{ r.buttonUrl = e.target.value; saveState(state); });
-
-      } else {
-        const q = state.questions[selectedId];
-        if(!q) { editor.innerHTML = `<div class="muted">Missing question data.</div>`; return; }
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = `
-          <label>Question ID</label>
-          <div class="small muted">${selectedId}</div>
-          <label style="margin-top:8px;">Question Text</label>
-          <textarea id="q-text" rows="3">${escapeHtml(q.text||'')}</textarea>
-          <div style="margin-top:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div class="small muted">Options & Logic</div>
-              <button id="add-opt" class="inline-btn">+ Option</button>
-            </div>
-            <div id="opts" class="options-list"></div>
-          </div>
-        `;
-        editor.appendChild(wrapper);
-
-        wrapper.querySelector('#q-text').addEventListener('input', e=>{ q.text = e.target.value; saveState(state); render(); });
-
-        const optsEl = wrapper.querySelector('#opts');
-        function renderOptions(){
-          optsEl.innerHTML = '';
-          q.options.forEach((opt, idx) => {
-            const row = document.createElement('div');
-            row.className = 'option-row';
-            row.innerHTML = `
-              <input class="opt-text" data-idx="${idx}" type="text" value="${escapeHtml(opt.text||'')}" />
-              <select class="opt-next" data-idx="${idx}"></select>
-              <button class="inline-btn remove-opt" data-idx="${idx}">Del</button>
-            `;
-            optsEl.appendChild(row);
-
-            // fill select
-            const sel = row.querySelector('.opt-next');
-            const nodes = availableNodesForSelect();
-            nodes.forEach(n=> {
-              const o = document.createElement('option'); o.value = n.id; o.textContent = `${n.label} (${n.id})`; if(n.id === opt.next) o.selected = true;
-              sel.appendChild(o);
-            });
-
-            // handlers
-            row.querySelector('.opt-text').addEventListener('input', e=>{ q.options[idx].text = e.target.value; saveState(state); render(); });
-            sel.addEventListener('change', e=>{ q.options[idx].next = e.target.value; saveState(state); });
-            row.querySelector('.remove-opt').addEventListener('click', ()=>{
-              q.options.splice(idx,1);
-              if(q.options.length===0) q.options.push({ id: uid('o'), text:'New Option', next: state.startId || Object.keys(state.questions)[0] || '' });
-              saveState(state); render();
-              renderEditor();
-            });
-          });
-        }
-        renderOptions();
-
-        wrapper.querySelector('#add-opt').addEventListener('click', ()=>{
-          q.options.push({ id: uid('o'), text: 'New Option', next: state.startId || Object.keys(state.questions)[0] || '' });
-          saveState(state); renderEditor();
-        });
-      }
-
-      // small live preview of the selected node
-      const previewPane = document.querySelector('#preview-pane');
-      previewPane.innerHTML = '<div style="opacity:0.9; padding:8px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02)"><div class="small muted">Live preview (player view) below:</div></div>';
-      const previewArea = document.createElement('div');
-      previewArea.className = 'preview-area';
-      previewArea.style.marginTop = '12px';
-      previewArea.innerHTML = generatePlayerHtmlFragment(state, selectedId);
-      previewPane.appendChild(previewArea);
-
-      // attach small player behavior for the preview (initialize)
-      initializePlayer(null, state);
-    }
-
-    // ---------- Player Modal / Inline Player ----------
-    function renderPlayerModal(){
-      const previewPane = document.querySelector('#preview-pane');
-      previewPane.innerHTML = '';
-      const container = document.createElement('div');
-      container.style.padding = '10px';
-      container.style.borderRadius = '8px';
-      container.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005))';
-      container.style.border = '1px solid rgba(255,255,255,0.02)';
-
-      const title = document.createElement('div'); title.innerHTML = `<div style="font-weight:800; color:#9df0d7">Player Preview</div><div class="muted small">Interact with the quiz as a visitor would.</div>`;
-      container.appendChild(title);
-
-      const playerWrapper = document.createElement('div');
-      playerWrapper.style.marginTop = '12px';
-      playerWrapper.innerHTML = generatePlayerHtmlFragment(state);
-      container.appendChild(playerWrapper);
-
-      previewPane.appendChild(container);
-
-      // activate player script
-      initializePlayer(container.querySelector('.quiz-embed'), state);
-    }
-
-    // ---------- Export ----------
-    function renderExport(){
-      const previewPane = document.querySelector('#preview-pane');
-      previewPane.innerHTML = '';
-      const wrap = document.createElement('div');
-      wrap.innerHTML = `<div style="font-weight:800; color:#9df0d7">Export Embed Code</div><div class="muted small" style="margin-top:6px">Copy the entire code block into a WordPress Custom HTML block.</div>`;
-      const code = generateEmbeddableHtml(state);
-      const pre = document.createElement('pre');
-      pre.textContent = code;
-      wrap.appendChild(pre);
-      const copyBtn = document.createElement('button');
-      copyBtn.textContent = 'Copy Code';
-      copyBtn.style.marginTop = '8px';
-      copyBtn.addEventListener('click', ()=>{
-        navigator.clipboard.writeText(code).then(()=>{ copyBtn.textContent='Copied!'; setTimeout(()=>copyBtn.textContent='Copy Code', 1600); });
-      });
-      wrap.appendChild(copyBtn);
-      previewPane.appendChild(wrap);
-    }
-
-    // ---------- EMBED GENERATOR ----------
-    function generateEmbeddableHtml(data){
-      const c = data.colors || DEFAULT_COLORS;
-      const playerData = JSON.parse(JSON.stringify(data)); // safe copy
-      const playerJson = JSON.stringify(playerData).replace(/</g,'\\u003c').replace(/>/g,'\\u003e');
-      const uniqueId = Date.now();
-      return `<!-- Quiz Embed (self-contained) -->
-<div id="quiz-root-${uniqueId}" class="quiz-embed"></div>
-<style>
-.quiz-embed { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; padding:20px; max-width:640px; margin:0 auto; }
-.quiz-card { padding:20px; background:${c.bgColor}; border-radius:12px; border:1px solid ${c.accentColor}; }
-.quiz-title { color:${c.primaryColor}; font-weight:800; font-size:22px; margin-bottom:8px; }
-.quiz-desc { color:${c.textColor}; margin-bottom:16px; }
-.quiz-option { display:flex; align-items:center; justify-content:center; padding:12px; margin-top:8px; background:${c.primaryColor}; color:${c.textColor}; border-radius:10px; cursor:pointer; border:none; width:100%; font-weight:700; }
-.quiz-option:hover { background:${c.primaryHover}; }
-.quiz-cta { display:block; padding:12px; margin-top:12px; background:${c.accentColor}; color:${c.bgColor}; text-align:center; text-decoration:none; border-radius:10px; font-weight:800; }
-.quiz-reset { display:block; padding:10px; margin-top:10px; background:${c.primaryColor}; color:${c.textColor}; text-align:center; border-radius:8px; cursor:pointer; border:none; }
-</style>
 <script>
-(function(){
-  const DATA = ${playerJson};
-  const ROOT = document.getElementById('quiz-root-${uniqueId}');
-  if(!ROOT) return;
-  let state='intro', current = DATA.startId, answers=[];
-  function render(){
-    if(state==='intro'){
-      ROOT.innerHTML = '<div class="quiz-card">'
-        + (DATA.logoUrl?('<img src="'+DATA.logoUrl+'" style="width:96px;height:96px;object-fit:contain;margin:0 auto 12px;border-radius:8px;" onerror="this.style.display=\\'none\\'">'):'')
-        + '<div class="quiz-title">'+escapeHtml(DATA.title)+'</div>'
-        + '<div class="quiz-desc">'+escapeHtml(DATA.description)+'</div>'
-        + '<input id="user_name_input" placeholder="Your name (optional)" style="width:100%;padding:10px;margin-bottom:12px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#e6eef8;">'
-        + '<button id="startBtn" class="quiz-option" style="background:${c.accentColor}; color:${c.bgColor};">Start Quiz</button>'
-        + '</div>';
-      const b = document.getElementById('startBtn');
-      b && b.addEventListener('click', ()=>{ state='quiz'; current = DATA.startId; answers=[]; render(); });
-      return;
+/* === QUIZ TOOL — Vanilla JS Single File App ===
+   Converts the React-based tool into a standalone HTML app with:
+   - Builder, Player, Export modes
+   - Color customization, node add/remove/edit
+   - localStorage saving & load
+   - Export generates embeddable HTML similar to original
+*/
+
+/* ----------------- Initial Data ----------------- */
+const INITIAL_COLORS = {
+  bgColor: '#1F2937',
+  textColor: '#F3F4F6',
+  primaryColor: '#4F46E5',
+  primaryHover: '#4338CA',
+  accentColor: '#10B981'
+};
+
+const INITIAL_QUIZ_DATA = {
+  title: "Untitled Transformation Quiz",
+  description: "Discover your personalized plan by answering a few quick questions.",
+  logoUrl: "",
+  startId: "q1",
+  colors: {...INITIAL_COLORS},
+  questions: {
+    "q1": {
+      text: "What is your current fitness level?",
+      options: [
+        { id: "o1", text: "Beginner", next: "q2" },
+        { id: "o2", text: "Intermediate", next: "q2" },
+        { id: "o3", text: "Advanced", next: "r_pro" }
+      ]
+    },
+    "q2": {
+      text: "How many hours a week can you dedicate to training?",
+      options: [
+        { id: "o4", text: "1-3 hours (Casual)", next: "r_low_effort" },
+        { id: "o5", text: "4-6 hours (Moderate)", next: "r_medium" }
+      ]
     }
-    const node = DATA.questions[current] || DATA.results[current];
-    if(!node){ ROOT.innerHTML='<div class="quiz-card"><p style="color:red;">Error: missing node '+current+'</p></div>'; return; }
-    if(current.startsWith('r')){
-      // result
-      ROOT.innerHTML = '<div class="quiz-card">'
-        + (document.getElementById('user_name_input') && document.getElementById('user_name_input').value ? '<div style="color:${c.primaryColor};font-weight:700;margin-bottom:8px;">Hello, '+escapeHtml(document.getElementById('user_name_input').value)+'</div>' : '')
-        + '<div class="quiz-title">'+escapeHtml(node.title)+'</div>'
-        + '<div style="color:${c.textColor}">'+escapeHtml(node.content).replace(/\\n/g,'<br>')+'</div>'
-        + (node.buttonUrl && node.buttonText?('<a class="quiz-cta" href="'+node.buttonUrl+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(node.buttonText)+'</a>'):'')
-        + '<button id="resetBtn" class="quiz-reset">Start New Quiz</button>'
-        + '</div>';
-      const rb = document.getElementById('resetBtn'); rb && rb.addEventListener('click', ()=>{ state='intro'; current=DATA.startId; answers=[]; render(); });
-      return;
+  },
+  results: {
+    "r_low_effort": {
+      title: "Your Sustainable Plan",
+      content: "Focus on consistency and diet first. We recommend two 30-minute sessions per week.",
+      buttonText: "Get My Quick Start Guide",
+      buttonUrl: "https://example.com/quick-start"
+    },
+    "r_medium": {
+      title: "Your Intermediate Plan",
+      content: "You are ready for a 4-day split routine focusing on progressive overload.",
+      buttonText: "See Intermediate Products",
+      buttonUrl: "https://example.com/products/intermediate"
+    },
+    "r_pro": {
+      title: "Your Advanced Optimization Plan",
+      content: "We will refine your current routine with periodization and specific recovery techniques.",
+      buttonText: "Book a Consultation",
+      buttonUrl: "https://example.com/consultation"
     }
-    // question
-    ROOT.innerHTML = '<div class="quiz-card"><div class="quiz-title" style="font-size:18px;color:${c.textColor}">'+escapeHtml(node.text)+'</div><div id="opts_wrap"></div></div>';
-    const wrap = document.getElementById('opts_wrap');
-    node.options.forEach(opt=>{
-      const btn = document.createElement('button');
-      btn.className = 'quiz-option';
-      btn.style.background='${c.primaryColor}';
-      btn.innerText = opt.text + (opt.next && opt.next.startsWith('r') ? ' (Result)' : '');
-      btn.addEventListener('click', ()=>{
-        answers.push({ qId: current, optionId: opt.id });
-        current = opt.next;
-        if(current && current.startsWith('r')){ state='result'; }
-        render();
+  }
+};
+
+/* ----------------- App State ----------------- */
+let appState = {
+  editorMode: 'builder', // builder | player | export
+  quizData: null,
+  saveStatusTimer: null,
+};
+
+/* ----------------- Helpers ----------------- */
+function uid(prefix='id') {
+  return prefix + Date.now() + Math.floor(Math.random()*1000);
+}
+function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+/* ----------------- Persistence (localStorage) ----------------- */
+const STORAGE_KEY = 'quiz-blueprint-data';
+function saveQuizData(data) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    setSaveStatus('Saved!');
+    clearTimeout(appState.saveStatusTimer);
+    appState.saveStatusTimer = setTimeout(()=> setSaveStatus('Ready'), 1500);
+  } catch(e) {
+    console.error('Save failed', e);
+    setSaveStatus('Save Failed!');
+  }
+}
+function loadQuizData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Merge with defaults to ensure keys
+    const merged = {...INITIAL_QUIZ_DATA, ...parsed, colors: {...INITIAL_COLORS, ...(parsed.colors||{})}};
+    // If questions/results missing, ensure objects
+    merged.questions = merged.questions || {};
+    merged.results = merged.results || {};
+    return merged;
+  } catch(e) {
+    console.warn('Load error, using defaults', e);
+    return null;
+  }
+}
+function setSaveStatus(text) {
+  const el = document.getElementById('saveStatus');
+  if(el) el.textContent = text;
+}
+
+/* ----------------- Render Helpers ----------------- */
+function el(tag, cls, attrs) {
+  const node = document.createElement(tag);
+  if(cls) node.className = cls;
+  if(attrs) Object.entries(attrs).forEach(([k,v]) => {
+    if(k === 'html') node.innerHTML = v;
+    else node.setAttribute(k,v);
+  });
+  return node;
+}
+
+/* ----------------- Build UI ----------------- */
+function renderApp() {
+  const root = document.getElementById('appRoot');
+  root.innerHTML = '';
+  const container = el('div','flex flex-col md:flex-row h-full min-h-[700px] gap-6');
+
+  // Left column - builder navigation or player header depending on mode
+  const leftCol = el('div','w-full md:w-64 p-4 bg-gray-900 border border-gray-700 rounded-xl overflow-y-auto');
+  // Right column - main area
+  const rightCol = el('div','flex-1 p-6 md:p-8 overflow-y-auto');
+
+  // Top controls inside left
+  const titleInput = el('input','w-full p-2 border border-gray-600 rounded-md text-sm bg-gray-800 text-gray-100 focus:ring-indigo-500','type=text');
+  titleInput.value = appState.quizData.title;
+  titleInput.addEventListener('input', (e) => {
+    appState.quizData.title = e.target.value;
+    debouncedSave();
+    // update player header label quickly
+    document.querySelectorAll('.app-title').forEach(n=>n.textContent = appState.quizData.title);
+  });
+
+  leftCol.appendChild(el('h2','text-lg font-bold mb-3','html':'Quiz Title'));
+  leftCol.appendChild(titleInput);
+
+  // Description
+  const descArea = el('textarea','w-full p-2 mt-3 border border-gray-600 rounded-md text-sm bg-gray-800 text-gray-100','rows=3');
+  descArea.value = appState.quizData.description;
+  descArea.addEventListener('input', (e)=> { appState.quizData.description = e.target.value; debouncedSave(); });
+  leftCol.appendChild(el('label','text-xs uppercase text-gray-400 mt-4','html':'Quiz Description'));
+  leftCol.appendChild(descArea);
+
+  // Logo URL
+  const logoInput = el('input','w-full p-2 mt-3 border border-gray-600 rounded-md text-sm bg-gray-800 text-gray-100','type=url');
+  logoInput.value = appState.quizData.logoUrl || '';
+  logoInput.placeholder = 'https://example.com/logo.png';
+  logoInput.addEventListener('input', (e)=> { appState.quizData.logoUrl = e.target.value; debouncedSave(); });
+  leftCol.appendChild(el('label','text-xs uppercase text-gray-400 mt-4','html':'Logo URL (Optional)'));
+  leftCol.appendChild(logoInput);
+
+  // Start ID select
+  const startSelect = el('select','w-full p-2 mt-3 border border-gray-600 rounded-md text-sm bg-gray-800 text-gray-100');
+  function refreshStartOptions() {
+    startSelect.innerHTML = '';
+    Object.keys(appState.quizData.questions).forEach(qid=>{
+      const opt = document.createElement('option');
+      opt.value = qid;
+      opt.textContent = `${appState.quizData.questions[qid].text} (${qid})`;
+      startSelect.appendChild(opt);
+    });
+    startSelect.value = appState.quizData.startId || (Object.keys(appState.quizData.questions)[0] || '');
+  }
+  refreshStartOptions();
+  startSelect.addEventListener('change', (e)=> { appState.quizData.startId = e.target.value; debouncedSave(); });
+  leftCol.appendChild(el('label','text-xs uppercase text-gray-400 mt-4','html':'Starting Question'));
+  leftCol.appendChild(startSelect);
+
+  // Node lists
+  leftCol.appendChild(el('div','mt-6'));
+  leftCol.appendChild(renderNodeList());
+
+  // Color Edit toggles & Export button wrappers
+  const bottomControls = el('div','mt-6 pt-4 border-t border-gray-700 space-y-3');
+  const colorToggleBtn = el('button','w-full px-3 py-2 rounded-lg bg-orange-700 hover:bg-orange-600 text-white','html':'Edit Colors');
+  bottomControls.appendChild(colorToggleBtn);
+
+  const exportBtn = el('button','w-full px-3 py-2 rounded-lg bg-teal-800 hover:bg-teal-700 text-white','html':'Export Embed HTML');
+  exportBtn.addEventListener('click', ()=> { appState.editorMode = 'export'; renderApp(); });
+  bottomControls.appendChild(exportBtn);
+
+  leftCol.appendChild(bottomControls);
+
+  /* Right column: Mode-specific UI */
+  if(appState.editorMode === 'builder') {
+    // Show builder editor
+    rightCol.appendChild(renderBuilderMain());
+  } else if(appState.editorMode === 'player') {
+    rightCol.appendChild(renderPlayerMain());
+  } else if(appState.editorMode === 'export') {
+    rightCol.appendChild(renderExportMain());
+  }
+
+  // wire toggle mode button
+  const toggleBtn = document.getElementById('toggleModeBtn');
+  toggleBtn.textContent = appState.editorMode === 'builder' ? 'Switch to Player' : 'Switch to Builder';
+  toggleBtn.onclick = () => { appState.editorMode = appState.editorMode === 'builder' ? 'player' : 'builder'; renderApp(); };
+
+  // color panel toggling
+  let colorPanelShown = false;
+  colorToggleBtn.onclick = () => {
+    colorPanelShown = !colorPanelShown;
+    if(colorPanelShown) {
+      colorToggleBtn.textContent = 'Hide Colors';
+      rightCol.innerHTML = '';
+      rightCol.appendChild(renderColorPanel());
+    } else {
+      colorToggleBtn.textContent = 'Edit Colors';
+      renderApp();
+    }
+  };
+
+  container.appendChild(leftCol);
+  container.appendChild(rightCol);
+  root.appendChild(container);
+}
+
+/* Render node list left side */
+function renderNodeList() {
+  const wrapper = el('div','space-y-4 mt-4');
+  // Questions
+  wrapper.appendChild(el('h3','text-xs font-bold uppercase tracking-wider text-gray-400','html':'Questions'));
+  Object.keys(appState.quizData.questions).forEach(id=>{
+    const row = el('div','p-2 rounded-lg text-sm cursor-pointer transition-all flex items-center justify-between bg-gray-800 hover:bg-gray-700');
+    const text = el('div','truncate','html': appState.quizData.questions[id].text);
+    const trash = el('button','text-gray-400 hover:text-red-500','html': '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18"/><path d="M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"/></svg>');
+    trash.addEventListener('click', (e)=> { e.stopPropagation(); deleteNode(id); renderApp(); });
+    row.appendChild(text);
+    row.appendChild(trash);
+    row.addEventListener('click', ()=> { openEditorFor(id); });
+    wrapper.appendChild(row);
+  });
+
+  const addQBtn = el('button','w-full mt-2 px-3 py-2 rounded-lg bg-indigo-700 text-white hover:bg-indigo-600 text-xs','html':'Add New Question');
+  addQBtn.addEventListener('click', ()=> {
+    const newId = uid('q');
+    appState.quizData.questions[newId] = { text: "New Question Text", options: [{ id: uid('o'), text: "Option A", next: appState.quizData.startId || Object.keys(appState.quizData.questions)[0] || ''}]};
+    // set start if empty
+    if(!appState.quizData.startId) appState.quizData.startId = newId;
+    debouncedSave();
+    renderApp();
+    openEditorFor(newId);
+  });
+  wrapper.appendChild(addQBtn);
+
+  // Results
+  wrapper.appendChild(el('h3','text-xs font-bold uppercase tracking-wider text-gray-400 mt-4','html':'Results'));
+  Object.keys(appState.quizData.results).forEach(id=>{
+    const row = el('div','p-2 rounded-lg text-sm cursor-pointer transition-all flex items-center justify-between bg-gray-800 hover:bg-gray-700');
+    const text = el('div','truncate','html': appState.quizData.results[id].title);
+    const trash = el('button','text-gray-400 hover:text-red-500','html': '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18"/><path d="M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"/></svg>');
+    trash.addEventListener('click', (e)=> { e.stopPropagation(); deleteNode(id); renderApp(); });
+    row.appendChild(text);
+    row.appendChild(trash);
+    row.addEventListener('click', ()=> { openEditorFor(id); });
+    wrapper.appendChild(row);
+  });
+
+  const addRBtn = el('button','w-full mt-2 px-3 py-2 rounded-lg bg-teal-700 text-white hover:bg-teal-600 text-xs','html':'Add New Result');
+  addRBtn.addEventListener('click', ()=> {
+    const newId = uid('r');
+    appState.quizData.results[newId] = { title: "New Result Title", content: "This is a detailed result based on user answers.", buttonText: "", buttonUrl: ""};
+    debouncedSave();
+    renderApp();
+    openEditorFor(newId);
+  });
+  wrapper.appendChild(addRBtn);
+
+  return wrapper;
+}
+
+/* Editor state for currently selected node */
+let editorSelectedId = null;
+function openEditorFor(id) {
+  editorSelectedId = id;
+  renderApp();
+}
+
+/* Delete node and re-link any options pointing to it */
+function deleteNode(idToDelete) {
+  if(idToDelete.startsWith('r')) {
+    delete appState.quizData.results[idToDelete];
+  } else {
+    delete appState.quizData.questions[idToDelete];
+  }
+  // Repoint options that pointed to this id to startId
+  Object.keys(appState.quizData.questions).forEach(qid=>{
+    appState.quizData.questions[qid].options = appState.quizData.questions[qid].options.map(opt => ({
+      ...opt,
+      next: opt.next === idToDelete ? (appState.quizData.startId || Object.keys(appState.quizData.questions)[0] || '') : opt.next
+    }));
+  });
+  // If startId deleted, set new start
+  if(appState.quizData.startId === idToDelete) {
+    appState.quizData.startId = Object.keys(appState.quizData.questions)[0] || '';
+  }
+  if(editorSelectedId === idToDelete) editorSelectedId = null;
+  debouncedSave();
+}
+
+/* Build main builder area (right column) */
+function renderBuilderMain() {
+  const wrapper = el('div','flex flex-col h-full');
+  const header = el('h3','text-2xl font-bold text-indigo-400 mb-6 border-b pb-2 border-gray-700 app-title','html': appState.quizData.title);
+  wrapper.appendChild(header);
+
+  // Node details panel
+  const detailBox = el('div','p-8 bg-gray-800 rounded-xl shadow-2xl border border-gray-700');
+  if(!editorSelectedId) {
+    detailBox.appendChild(el('div','p-8 text-center text-gray-400','html':'Select a Question or Result to edit its content and logic.'));
+    wrapper.appendChild(detailBox);
+    return wrapper;
+  }
+
+  const isResult = editorSelectedId.startsWith('r');
+  const currentNode = isResult ? appState.quizData.results[editorSelectedId] : appState.quizData.questions[editorSelectedId];
+
+  const idLine = el('p','text-xs font-mono text-gray-400 mb-2','html': `ID: ${editorSelectedId}`);
+  detailBox.appendChild(idLine);
+
+  if(isResult) {
+    // Result editor
+    const titleLabel = el('label','block text-sm font-medium text-gray-300 mb-1','html':'Result Title');
+    const titleInput = el('input','w-full p-2 border border-gray-600 bg-gray-800 text-gray-100 rounded-md','type=text');
+    titleInput.value = currentNode.title || '';
+    titleInput.addEventListener('input', e=> { currentNode.title = e.target.value; debouncedSave(); renderApp(); });
+
+    const contentLabel = el('label','block text-sm font-medium text-gray-300 mt-4 mb-1','html':'Result Content');
+    const contentArea = el('textarea','w-full p-2 border border-gray-600 bg-gray-800 text-gray-100 rounded-md','rows=6');
+    contentArea.value = currentNode.content || '';
+    contentArea.addEventListener('input', e=> { currentNode.content = e.target.value; debouncedSave(); });
+
+    const ctaHeader = el('h4','text-base font-semibold text-teal-400 mt-6 pt-4 border-t border-gray-600','html':'Call-to-Action Link');
+    const btnTextLabel = el('label','block text-sm font-medium text-gray-300 mb-1','html':'Button Text (Optional)');
+    const btnTextInput = el('input','w-full p-2 border border-gray-600 bg-gray-800 text-gray-100 rounded-md','type=text');
+    btnTextInput.value = currentNode.buttonText || '';
+    btnTextInput.addEventListener('input', e=> { currentNode.buttonText = e.target.value; debouncedSave(); });
+
+    const btnUrlLabel = el('label','block text-sm font-medium text-gray-300 mt-4 mb-1','html':'Button URL (Must start with http:// or https://)');
+    const btnUrlInput = el('input','w-full p-2 border border-gray-600 bg-gray-800 text-gray-100 rounded-md','type=url');
+    btnUrlInput.value = currentNode.buttonUrl || '';
+    btnUrlInput.placeholder = 'https://yourproduct.com';
+    btnUrlInput.addEventListener('input', e=> { currentNode.buttonUrl = e.target.value; debouncedSave(); });
+
+    detailBox.appendChild(titleLabel);
+    detailBox.appendChild(titleInput);
+    detailBox.appendChild(contentLabel);
+    detailBox.appendChild(contentArea);
+    detailBox.appendChild(ctaHeader);
+    detailBox.appendChild(btnTextLabel);
+    detailBox.appendChild(btnTextInput);
+    detailBox.appendChild(btnUrlLabel);
+    detailBox.appendChild(btnUrlInput);
+  } else {
+    // Question editor
+    const qLabel = el('label','block text-sm font-medium text-gray-300 mb-1','html':'Question Text');
+    const qArea = el('textarea','w-full p-2 border border-gray-600 bg-gray-800 text-gray-100 rounded-md','rows=3');
+    qArea.value = currentNode.text || '';
+    qArea.addEventListener('input', e=> { currentNode.text = e.target.value; debouncedSave(); renderApp(); });
+
+    const optionsHeader = el('h4','text-base font-semibold text-gray-300 mt-6 mb-3 flex items-center justify-between','html':'Options & Logic');
+    const addOptionBtn = el('button','bg-indigo-700 text-white px-2 py-1 rounded text-xs','html':'Add Option');
+    addOptionBtn.addEventListener('click', ()=> {
+      currentNode.options.push({ id: uid('o'), text: 'New Option', next: appState.quizData.startId || Object.keys(appState.quizData.questions)[0] || ''});
+      debouncedSave();
+      renderApp();
+    });
+    optionsHeader.appendChild(addOptionBtn);
+
+    detailBox.appendChild(qLabel);
+    detailBox.appendChild(qArea);
+    detailBox.appendChild(optionsHeader);
+
+    currentNode.options.forEach((opt, idx) => {
+      const optWrap = el('div','p-3 border border-indigo-700 rounded-md bg-gray-800 shadow-sm space-y-2 mb-3');
+
+      const line = el('div','flex items-start');
+      const textInput = el('input','w-full p-2 text-sm border border-gray-600 bg-gray-900 text-gray-100 rounded-md mr-2','type=text');
+      textInput.value = opt.text || '';
+      textInput.addEventListener('input', e=> { opt.text = e.target.value; debouncedSave(); });
+
+      const removeBtn = el('button','p-2 text-red-400 hover:text-red-500 rounded-full','html':'<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12"/></svg>');
+      removeBtn.addEventListener('click', ()=> { currentNode.options.splice(idx,1); debouncedSave(); renderApp(); });
+
+      line.appendChild(textInput);
+      line.appendChild(removeBtn);
+      optWrap.appendChild(line);
+
+      const label = el('label','block text-xs font-medium text-gray-400','html':'Next Step (Question or Result)');
+      const select = el('select','w-full p-2 border border-gray-600 bg-gray-900 text-gray-100 rounded-md text-sm');
+      const available = {...Object.keys(appState.quizData.questions).reduce((a,id)=>{a[id]={type:'question',title:appState.quizData.questions[id].text};return a;},{}) , ...Object.keys(appState.quizData.results).reduce((a,id)=>{a[id]={type:'result',title:appState.quizData.results[id].title};return a;},{})};
+      Object.keys(available).forEach(nid=>{
+        const o = document.createElement('option');
+        o.value = nid;
+        o.textContent = `${available[nid].type === 'question' ? 'Q: ' : 'R: '}${available[nid].title} (${nid})`;
+        select.appendChild(o);
       });
-      wrap.appendChild(btn);
+      select.value = opt.next || '';
+      select.addEventListener('change', e=> { opt.next = e.target.value; debouncedSave(); });
+
+      optWrap.appendChild(label);
+      optWrap.appendChild(select);
+
+      detailBox.appendChild(optWrap);
     });
   }
-  // escapeHtml for result safety inside embed
-  function escapeHtml(s){ if(!s) return ''; return s.toString().replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-  render();
-})();
-</script>
-<!-- End Quiz Embed -->`;
-    }
 
-    // ---------- PLAYER FRAGMENT FOR EDITOR PREVIEW ----------
-    function generatePlayerHtmlFragment(data, forceNodeId){
-      const c = data.colors || DEFAULT_COLORS;
-      const payload = { data: data, forceNodeId: forceNodeId || null, colors: c };
-      return `<div class="quiz-embed" style="border-radius:10px; padding:12px;" data-payload='${escapeHtml(JSON.stringify(payload))}'>
-        <div style="text-align:center; color:${c.primaryColor}; font-weight:800;">${escapeHtml(data.title)}</div>
-        <div style="color:${c.textColor}; margin-top:8px;">${escapeHtml(data.description)}</div>
-        <div style="margin-top:12px;"><small class="muted">Preview — click below to open full preview</small></div>
-      </div>
-      <div style="margin-top:8px;"><button class="inline-btn" id="openFullPreview">Open Full Preview</button></div>`;
-    }
+  wrapper.appendChild(detailBox);
+  return wrapper;
+}
 
-    // ---------- PLAYER INITIALIZER (for preview pane) ----------
-    function initializePlayer(container, data){
-      if(!container) {
-        const embed = document.querySelector('.quiz-embed');
-        if(!embed) return;
-        const payload = JSON.parse(embed.dataset.payload || '{}');
-        const payloadData = payload.data || data;
-        runStandalonePlayer(embed, payloadData, payload.forceNodeId || null);
-        const btn = document.getElementById('openFullPreview');
-        if(btn) btn.addEventListener('click', ()=>{ renderPlayerModal(); });
-      } else {
-        const embed = container.querySelector('.quiz-embed');
-        if(!embed) return;
-        const payload = JSON.parse(embed.dataset.payload || '{}');
-        runStandalonePlayer(embed, payload.data || data, payload.forceNodeId || null);
-      }
-    }
+/* Color customization panel */
+function renderColorPanel() {
+  const box = el('div','p-8 bg-gray-800 rounded-xl shadow-2xl border border-gray-700');
+  box.appendChild(el('h3','text-2xl font-bold text-indigo-400 mb-6 border-b pb-2 border-gray-700','html':'Customize Quiz Colors'));
+  box.appendChild(el('p','text-gray-400 mb-6','html':'These colors will be used in the live Player Mode and in the exported HTML code.'));
 
-    function runStandalonePlayer(rootEl, DATA, forceNode){
-      rootEl.innerHTML = '';
-      const c = DATA.colors || DEFAULT_COLORS;
-      const card = document.createElement('div'); card.className='quiz-card'; card.style.background=c.bgColor; card.style.border='1px solid '+c.accentColor; card.style.padding='12px';
-      rootEl.appendChild(card);
-      let state='intro', current = forceNode || DATA.startId, answers=[];
-      function render(){
-        card.innerHTML = '';
-        if(state==='intro'){
-          if(DATA.logoUrl){ const img=document.createElement('img'); img.src=DATA.logoUrl; img.style.width='72px'; img.style.height='72px'; img.style.objectFit='contain'; img.style.display='block'; img.style.margin='0 auto 8px'; img.onerror=function(){ this.style.display='none'; }; card.appendChild(img); }
-          const t = document.createElement('div'); t.style.color=c.primaryColor; t.style.fontWeight=800; t.style.fontSize='18px'; t.textContent=DATA.title; card.appendChild(t);
-          const d = document.createElement('div'); d.style.color=c.textColor; d.style.marginTop='8px'; d.textContent=DATA.description; card.appendChild(d);
-          const start = document.createElement('button'); start.className='quiz-option'; start.textContent='Start Quiz'; start.style.background=c.accentColor; start.style.color=c.bgColor; start.style.marginTop='12px';
-          start.addEventListener('click', ()=>{ state='quiz'; current=DATA.startId; answers=[]; render(); });
-          card.appendChild(start);
-          return;
-        }
-        const node = DATA.questions[current] || DATA.results[current];
-        if(!node) { card.innerHTML='<div style="color:red">Missing node '+current+'</div>'; return; }
-        if(current.startsWith('r')){
-          const t = document.createElement('div'); t.style.color=c.accentColor; t.style.fontWeight=800; t.style.fontSize='18px'; t.textContent=node.title; card.appendChild(t);
-          const p = document.createElement('div'); p.style.color=c.textColor; p.style.marginTop='8px'; p.innerHTML = (node.content||'').replace(/\\n/g,'<br>');
-          card.appendChild(p);
-          if(node.buttonUrl && node.buttonText){
-            const a = document.createElement('a'); a.href=node.buttonUrl; a.target='_blank'; a.className='quiz-cta'; a.textContent=node.buttonText; a.style.background=c.accentColor; a.style.color=c.bgColor; a.style.display='block'; a.style.marginTop='12px';
-            card.appendChild(a);
-          }
-          const reset = document.createElement('button'); reset.className='quiz-reset'; reset.textContent='Start New Quiz'; reset.style.marginTop='12px'; reset.addEventListener('click', ()=>{ state='intro'; current=DATA.startId; answers=[]; render(); });
-          card.appendChild(reset);
-          return;
-        }
-        const q = document.createElement('div'); q.style.color=c.textColor; q.style.fontWeight=700; q.textContent=node.text; card.appendChild(q);
-        node.options.forEach(opt=>{
-          const b = document.createElement('button'); b.className='quiz-option'; b.textContent=opt.text; b.style.background=c.primaryColor; b.style.color=c.textColor; b.style.marginTop='8px';
-          b.addEventListener('click', ()=>{ answers.push({ qId: current, optionId: opt.id }); current=opt.next; if(current && current.startsWith('r')) state='result'; render(); });
-          card.appendChild(b);
-        });
-      }
-      render();
-    }
+  const grid = el('div','grid grid-cols-1 sm:grid-cols-2 gap-6');
+  const cpairs = [
+    {label:'Card Background Color (bgColor)','key':'bgColor'},
+    {label:'Text Color (textColor)','key':'textColor'},
+    {label:'Primary Button Color (primaryColor)','key':'primaryColor'},
+    {label:'Button Hover Color (primaryHover)','key':'primaryHover'},
+    {label:'Accent/CTA Color (accentColor)','key':'accentColor'}
+  ];
 
-    // ---------- UTIL ----------
-    function escapeHtml(s){ if(s===undefined || s===null) return ''; return s.toString().replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  cpairs.forEach(pair=>{
+    const wrap = el('div','flex flex-col space-y-1');
+    const lab = el('label','text-sm font-medium text-gray-300','html':pair.label);
+    const row = el('div','flex items-center space-x-2');
+    const colorInput = el('input','','type=color');
+    colorInput.value = appState.quizData.colors[pair.key];
+    colorInput.addEventListener('input', (e)=> { appState.quizData.colors[pair.key] = e.target.value; debouncedSave(); renderApp(); });
 
-    // initial render
-    render();
-
-    // try hooking up preview clicks
-    document.addEventListener('click', function(e){
-      if(e.target && e.target.id === 'openFullPreview'){ renderPlayerModal(); }
-      if(e.target && e.target.matches && e.target.matches('.quiz-embed') ){
-        // noop
-      }
+    const textInput = el('input','flex-1 p-2 border border-gray-600 bg-gray-900 text-gray-100 rounded-md text-sm','type=text');
+    textInput.value = appState.quizData.colors[pair.key];
+    textInput.addEventListener('input', (e)=> {
+      appState.quizData.colors[pair.key] = e.target.value;
+      colorInput.value = e.target.value;
+      debouncedSave();
+      renderApp();
     });
 
-  })(); // IIFE end
+    row.appendChild(colorInput);
+    row.appendChild(textInput);
+
+    wrap.appendChild(lab);
+    wrap.appendChild(row);
+    grid.appendChild(wrap);
+  });
+
+  box.appendChild(grid);
+  return box;
+}
+
+/* Player Mode UI */
+function renderPlayerMain() {
+  const wrapper = el('div','flex flex-col items-center pt-6');
+  wrapper.appendChild(el('h2','text-3xl font-bold text-gray-100 mb-6 border-b-4 border-teal-500 pb-2 app-title','html': appState.quizData.title));
+
+  const playerCard = el('div','w-full max-w-lg p-8 border rounded-xl shadow-2xl','html':'');
+  const { bgColor, textColor, primaryColor, accentColor, primaryHover } = appState.quizData.colors || INITIAL_COLORS;
+  playerCard.style.backgroundColor = bgColor;
+  playerCard.style.borderColor = primaryColor;
+
+  // Build initial player state
+  let quizState = 'intro';
+  let currentId = appState.quizData.startId;
+  let answers = [];
+  let userName = '';
+
+  function renderIntro() {
+    playerCard.innerHTML = '';
+    if(appState.quizData.logoUrl) {
+      const img = el('img','w-24 h-24 object-contain mx-auto mb-6 rounded-lg shadow-md');
+      img.src = appState.quizData.logoUrl;
+      img.onerror = ()=> { img.style.display='none'; };
+      playerCard.appendChild(img);
+    }
+    const title = el('h2','text-3xl font-extrabold mb-3 text-center','html': appState.quizData.title);
+    title.style.color = primaryColor;
+    const desc = el('p','mb-6 text-lg text-center','html': appState.quizData.description);
+    desc.style.color = textColor;
+
+    const nameLabel = el('label','block text-lg font-semibold mb-2','html':'Your Name (Optional but encouraged):');
+    nameLabel.style.color = accentColor;
+    const nameInput = el('input','w-full p-3 mb-6 border border-gray-600 bg-gray-900 text-gray-100 rounded-lg','type=text');
+    nameInput.placeholder = 'Enter your name';
+    nameInput.addEventListener('input', (e)=> userName = e.target.value);
+
+    const startBtn = el('button','w-full p-3 text-lg font-bold rounded-lg transition-fast','html':'Start Quiz');
+    startBtn.style.backgroundColor = accentColor;
+    startBtn.style.color = bgColor;
+    startBtn.addEventListener('mouseenter', ()=> startBtn.style.backgroundColor = primaryHover);
+    startBtn.addEventListener('mouseleave', ()=> startBtn.style.backgroundColor = accentColor);
+    startBtn.addEventListener('click', ()=> { quizState = 'quiz'; render(); });
+
+    playerCard.appendChild(title);
+    playerCard.appendChild(desc);
+    playerCard.appendChild(nameLabel);
+    playerCard.appendChild(nameInput);
+    playerCard.appendChild(startBtn);
+  }
+
+  function renderQuestion(node) {
+    playerCard.innerHTML = '';
+    const q = el('h2','text-xl md:text-2xl font-bold mb-6 min-h-[40px]','html': node.text);
+    q.style.color = textColor;
+    playerCard.appendChild(q);
+
+    node.options.forEach(opt=>{
+      const btn = el('button','flex items-center justify-center w-full p-3 text-sm font-semibold rounded-lg shadow-md transition-all mb-3','html':`<span class="mr-2">➤</span> ${opt.text}`);
+      btn.style.backgroundColor = primaryColor;
+      btn.style.color = textColor;
+      btn.addEventListener('mouseenter', ()=> btn.style.backgroundColor = primaryHover);
+      btn.addEventListener('mouseleave', ()=> btn.style.backgroundColor = primaryColor);
+      btn.addEventListener('click', ()=>{
+        answers.push({ qId: currentId, optionId: opt.id });
+        currentId = opt.next;
+        if(currentId.startsWith('r')) quizState = 'result';
+        render();
+      });
+      playerCard.appendChild(btn);
+    });
+  }
+
+  function renderResult(node) {
+    playerCard.innerHTML = '';
+    if(userName) {
+      const greet = el('h3','text-xl font-bold mb-4','html': `Hello, ${userName}!`);
+      greet.style.color = primaryColor;
+      playerCard.appendChild(greet);
+    }
+    const title = el('h2','text-3xl font-extrabold mb-4 border-b pb-2','html': node.title);
+    title.style.color = accentColor;
+    playerCard.appendChild(title);
+
+    const content = el('p','whitespace-pre-wrap mb-8','html': node.content);
+    content.style.color = textColor;
+    playerCard.appendChild(content);
+
+    const journeyHeader = el('h3','text-lg font-semibold mb-3','html':'Your Journey:');
+    journeyHeader.style.color = accentColor;
+    playerCard.appendChild(journeyHeader);
+
+    const ul = el('ul','list-disc list-inside text-sm space-y-1 pl-4');
+    ul.style.color = textColor;
+    answers.forEach(ans=>{
+      const question = appState.quizData.questions[ans.qId];
+      const option = question?.options.find(o=>o.id===ans.optionId);
+      const li = el('li','pl-1','html': `<span style="font-weight:600">${question?.text||'Unknown Question'}</span>: ${option?.text||'Unknown Answer'}`);
+      ul.appendChild(li);
+    });
+    playerCard.appendChild(ul);
+
+    if(node.buttonUrl && node.buttonText) {
+      const cta = el('a','flex items-center justify-center p-4 text-lg font-bold rounded-lg shadow-xl transition-all mt-6','html': `<span class="mr-2">➤</span> ${node.buttonText}`);
+      cta.href = node.buttonUrl;
+      cta.target = '_blank';
+      cta.rel = 'noopener noreferrer';
+      cta.style.backgroundColor = accentColor;
+      cta.style.color = appState.quizData.colors.bgColor;
+      playerCard.appendChild(cta);
+    }
+
+    const resetBtn = el('button','mt-6 w-full px-4 py-2 rounded-lg','html':'Start New Quiz');
+    resetBtn.style.backgroundColor = appState.quizData.colors.primaryColor;
+    resetBtn.style.color = appState.quizData.colors.textColor;
+    resetBtn.addEventListener('click', ()=> {
+      quizState = 'intro'; currentId = appState.quizData.startId; answers = []; userName = ''; render();
+    });
+    playerCard.appendChild(resetBtn);
+  }
+
+  function render() {
+    if(quizState === 'intro') {
+      renderIntro();
+      return;
+    }
+    const node = appState.quizData.questions[currentId] || appState.quizData.results[currentId];
+    if(!node) {
+      playerCard.innerHTML = `<div class="p-6 bg-red-600 rounded">Error: Missing node ${currentId}</div>`;
+      return;
+    }
+    if(currentId.startsWith('r')) renderResult(node);
+    else renderQuestion(node);
+  }
+
+  render();
+  wrapper.appendChild(playerCard);
+
+  return wrapper;
+}
+
+/* Export UI */
+function renderExportMain() {
+  const box = el('div','p-8 bg-gray-800 rounded-xl shadow-2xl border border-gray-700');
+  box.appendChild(el('h3','text-2xl font-bold text-teal-400 mb-6 border-b pb-2 border-gray-700','html':'Embeddable HTML Code'));
+  box.appendChild(el('p','text-gray-300 mb-4','html':'This is the <strong>full, self-contained HTML code</strong>. Copy & paste into a WordPress Custom HTML block or upload as a standalone file.'));
+
+  const embedCode = generateEmbeddableHtml(appState.quizData);
+  const pre = el('pre','bg-gray-900 p-4 rounded-lg text-sm text-green-300 overflow-x-auto max-h-[500px] border border-gray-700 code-block');
+  pre.textContent = embedCode;
+
+  const copyBtn = el('button','mt-3 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white','html':'Copy Code');
+  copyBtn.addEventListener('click', ()=> {
+    navigator.clipboard?.writeText(embedCode).then(()=> {
+      copyBtn.textContent = 'Copied!';
+      setTimeout(()=> copyBtn.textContent = 'Copy Code', 1500);
+    }).catch(()=> { copyBtn.textContent = 'Copy Failed'; setTimeout(()=> copyBtn.textContent = 'Copy Code', 1500); });
+  });
+
+  box.appendChild(pre);
+  box.appendChild(copyBtn);
+
+  const back = el('div','mt-6 text-center');
+  const backBtn = el('button','bg-gray-700 text-gray-100 hover:bg-gray-600 px-3 py-2 rounded-lg','html':'Back to Builder Mode');
+  backBtn.addEventListener('click', ()=> { appState.editorMode = 'builder'; renderApp(); });
+  back.appendChild(backBtn);
+  box.appendChild(back);
+
+  return box;
+}
+
+/* ----------------- Export generator ----------------- */
+function escapeForHTML(str='') {
+  return str.replace(/</g, '\\u003c').replace(/>/g,'\\u003e');
+}
+function generateEmbeddableHtml(data) {
+  const colors = data.colors || INITIAL_COLORS;
+  const playerData = clone(data);
+  // Remove references to functions and keep pure data
+  const quizJson = JSON.stringify(playerData).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+  const uniqueId = Date.now();
+  const html = `
+<!-- Interactive Quiz Blueprint: Embeddable Player (HTML/CSS/JS - WordPress Ready) -->
+<div id="quiz-root-${uniqueId}" class="quiz-container">
+  <style>
+    .quiz-container{font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; padding:24px; max-width:540px; margin:0 auto;}
+    .quiz-card{padding:2rem; background-color: ${colors.bgColor}; border:1px solid ${colors.accentColor}; border-radius:.75rem; box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05); transition:all .3s ease;}
+    .quiz-question-text{color:${colors.textColor}; font-size:1.5rem; font-weight:700; margin-bottom:1.5rem;}
+    .quiz-option-button{display:flex; align-items:center; justify-content:center; width:100%; padding:1rem; margin-top:.75rem; background-color:${colors.primaryColor}; color:${colors.textColor}; font-weight:600; border-radius:.5rem; transition:background-color .2s, transform .1s; cursor:pointer; border:none;}
+    .quiz-option-button:hover{background-color:${colors.primaryHover};}
+    .quiz-result-title{color:${colors.accentColor}; font-size:2rem; font-weight:800; margin-bottom:1rem; border-bottom:2px solid ${colors.accentColor}; padding-bottom:.5rem;}
+    .quiz-result-content, .quiz-result-content p, .quiz-result-content ul{color:${colors.textColor}; white-space: pre-wrap; margin-bottom:2rem; line-height:1.6;}
+    .quiz-cta-button{display:flex; align-items:center; justify-content:center; width:100%; padding:1rem; background-color:${colors.accentColor}; color:${colors.bgColor}; font-size:1.125rem; font-weight:700; border-radius:.5rem; transition: background-color .3s, box-shadow .3s; text-decoration:none; box-shadow:0 5px 10px rgba(0,0,0,.2);}
+    .quiz-cta-button:hover{filter:brightness(1.1);}
+    .quiz-reset-button{display:block; width:100%; padding:.75rem; margin-top:1rem; background-color:${colors.primaryColor}; color:${colors.textColor}; font-weight:600; border-radius:.5rem; text-align:center; cursor:pointer; border:none;}
+    .quiz-logo{width:96px; height:96px; object-fit:contain; margin:0 auto 1.5rem; border-radius:.5rem;}
+    .quiz-title-intro{font-size:2.25rem; font-weight:800; margin-bottom:.75rem; text-align:center;}
+    .quiz-description-intro{font-size:1.125rem; line-height:1.6; margin-bottom:2rem; text-align:center;}
+    .quiz-start-button{display:flex; align-items:center; justify-content:center; width:100%; padding:1rem; font-size:1.25rem; font-weight:700; border-radius:.5rem; cursor:pointer; border:none; background-color:${colors.accentColor}; color:${colors.bgColor};}
+    .quiz-name-input{width:100%; padding:.75rem; margin-bottom:1.5rem; border:1px solid #4B5563; background-color:#1F2937; color:#F3F4F6; border-radius:.5rem;}
+  </style>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      const QUIZ_DATA = ${quizJson};
+      const ROOT_ID = 'quiz-root-${uniqueId}';
+      const rootElement = document.getElementById(ROOT_ID);
+      if(!rootElement) return;
+      let quizState = 'intro';
+      let currentId = QUIZ_DATA.startId;
+      let answers = [];
+      let userName = '';
+
+      const availableNodes = {
+        ...Object.keys(QUIZ_DATA.questions).reduce((acc,id)=>{acc[id]={type:'question',title:QUIZ_DATA.questions[id].text};return acc;},{}),
+        ...Object.keys(QUIZ_DATA.results).reduce((acc,id)=>{acc[id]={type:'result',title:QUIZ_DATA.results[id].title};return acc;},{})
+      };
+
+      function handleReset(){ quizState='intro'; currentId=QUIZ_DATA.startId; answers=[]; userName=''; render(); }
+      function handleStartQuiz(){ const inp = document.getElementById('user-name-input-${uniqueId}'); if(inp) userName = inp.value.trim(); quizState='quiz'; render(); }
+      function handleOptionClick(btn, nextId){ if(currentId.startsWith('r')) return; answers.push({qId:currentId, optionId: btn.getAttribute('data-id')||'untracked', next: nextId}); currentId = nextId; if(nextId.startsWith('r')) quizState='result'; render(); }
+
+      function renderIntro(){
+        const logoHtml = QUIZ_DATA.logoUrl ? '<img src="'+QUIZ_DATA.logoUrl+'" alt="Quiz Logo" class="quiz-logo" onerror="this.style.display=\\'none\\'">' : '';
+        rootElement.innerHTML = '<div class="quiz-card" style="border-color:${colors.primaryColor};">'+logoHtml+'<h2 class="quiz-title-intro" style="color:${colors.primaryColor};">'+QUIZ_DATA.title+'</h2><p class="quiz-description-intro" style="color:${colors.textColor};">'+QUIZ_DATA.description+'</p><div style="margin-top:1.5rem;"><label for="user-name-input-${uniqueId}" style="display:block; font-size:1.125rem; font-weight:600; margin-bottom:.5rem; color:${colors.accentColor};">Your Name (Optional but encouraged):</label><input type="text" id="user-name-input-${uniqueId}" placeholder="Enter your name" class="quiz-name-input"></div><button class="quiz-start-button" id="quiz-start-${uniqueId}">Start Quiz</button></div>';
+        document.getElementById('quiz-start-${uniqueId}').addEventListener('click', handleStartQuiz);
+      }
+
+      function renderResult(currentNode){
+        let answerList = answers.map((ans)=>{ const q = QUIZ_DATA.questions[ans.qId]; const op = q?.options.find(o=>o.id===ans.optionId); return '<li><span style="font-weight:600;">'+(q?.text||'Unknown Question')+'</span>: '+(op?.text||'Unknown Answer')+'</li>'; }).join('');
+        const userGreeting = userName ? '<h3 style="color:${colors.primaryColor}; font-size:1.125rem; font-weight:700; margin-bottom:1rem;">Hello, '+userName+'!</h3>' : '';
+        rootElement.innerHTML = '<div class="quiz-card" style="border-color:${colors.accentColor};">'+userGreeting+'<h2 class="quiz-result-title">'+currentNode.title+'</h2><p class="quiz-result-content">'+currentNode.content+'</p><h3 style="color:${colors.accentColor}; font-weight:600; margin-bottom:0.5rem;">Your Journey:</h3><ul class="quiz-result-content" style="list-style: disc; margin-left: 20px;">'+answerList+'</ul>' + (currentNode.buttonUrl && currentNode.buttonText ? '<a href="'+currentNode.buttonUrl+'" target="_blank" rel="noopener noreferrer" class="quiz-cta-button">'+currentNode.buttonText+'</a>' : '') + '<button class="quiz-reset-button" id="quiz-reset-${uniqueId}">Start New Quiz</button></div>';
+        document.getElementById('quiz-reset-${uniqueId}').addEventListener('click', handleReset);
+      }
+
+      function renderQuestion(currentNode){
+        let optionsHtml = currentNode.options.map(option=> '<button class="quiz-option-button" data-next="'+option.next+'" data-id="'+option.id+'">'+option.text+'<span style="margin-left:auto; font-size:.75rem; opacity:.8;"> ('+(availableNodes[option.next]?.type === 'result' ? 'Result' : 'Next Q')+') </span></button>').join('');
+        rootElement.innerHTML = '<div class="quiz-card" style="border-color:${colors.primaryColor};"><h2 class="quiz-question-text">'+currentNode.text+'</h2><div>'+optionsHtml+'</div></div>';
+        rootElement.querySelectorAll('.quiz-option-button').forEach(button=>{
+          button.addEventListener('click', function(){ handleOptionClick(this, this.getAttribute('data-next')); });
+        });
+      }
+
+      function render(){
+        if(quizState==='intro'){ renderIntro(); return; }
+        const currentNode = QUIZ_DATA.questions[currentId] || QUIZ_DATA.results[currentId];
+        if(!currentNode){ rootElement.innerHTML = '<div class="quiz-card"><p style="color:red;">Error: Missing node '+currentId+'</p></div>'; return; }
+        if(currentId.startsWith('r')) renderResult(currentNode); else renderQuestion(currentNode);
+      }
+
+      render();
+    });
   </script>
+</div>
+<!-- End Interactive Quiz Blueprint Embed -->
+`.trim();
+  return html;
+}
+
+/* ----------------- Utility: Debounce Save ----------------- */
+let debouncerTimer = null;
+function debouncedSave() {
+  setSaveStatus('Saving...');
+  clearTimeout(debouncerTimer);
+  debouncerTimer = setTimeout(()=> {
+    saveQuizData(appState.quizData);
+  }, 800);
+}
+
+/* ----------------- Initialize App ----------------- */
+function bootstrap() {
+  const loaded = loadQuizData();
+  appState.quizData = loaded || clone(INITIAL_QUIZ_DATA);
+  // ensure startId valid
+  if(!appState.quizData.startId) {
+    appState.quizData.startId = Object.keys(appState.quizData.questions)[0] || '';
+  }
+
+  // initial render
+  renderApp();
+
+  // expose reset function on window for developer convenience (like original)
+  window.resetQuizBuilder = function(){
+    localStorage.removeItem(STORAGE_KEY);
+    appState.quizData = clone(INITIAL_QUIZ_DATA);
+    editorSelectedId = null;
+    renderApp();
+  };
+}
+
+bootstrap();
+
+</script>
+
 </body>
 </html>
