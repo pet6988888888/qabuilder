@@ -3,798 +3,1082 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cookbook Cover Creator</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load html2canvas for image export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <!-- Custom Font Configuration for Tailwind -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        // 15 Total Custom fonts for variety
-                        'inter': ['Inter', 'sans-serif'],
-                        'serif': ['Playfair Display', 'serif'],
-                        'mono': ['Space Mono', 'monospace'],
-                        'oswald': ['Oswald', 'sans-serif'],
-                        'pacifico': ['Pacifico', 'cursive'],
-                        'slab': ['Roboto Slab', 'serif'],
-                        'lobster': ['Lobster', 'cursive'],
-                        'lora': ['Lora', 'serif'],
-                        'montserrat': ['Montserrat', 'sans-serif'],
-                        'fjalla': ['Fjalla One', 'sans-serif'],
-                        'marker': ['Permanent Marker', 'cursive'],
-                        'bebas': ['Bebas Neue', 'sans-serif'],
-                        'dancing': ['Dancing Script', 'cursive'],
-                        'righteous': ['Righteous', 'cursive'],
-                        'vollkorn': ['Vollkorn', 'serif'],
-                    },
-                    colors: {
-                        'primary-bg': '#333333',
-                        'secondary-bg': '#4CAF50', // Default green from the example
-                    }
-                }
-            }
-        }
-    </script>
+    <title>Quiz Blueprint Builder - Create Product Recommendation Quizzes</title>
+    <meta name="description" content="Build beautiful, interactive product recommendation quizzes for your website. Export standalone HTML code that works anywhere.">
     <style>
-        /* UPDATED: Imported all 15 font families */
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Dancing+Script:wght@400;700&family=Fjalla+One:wght@400;700&family=Inter:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Montserrat:wght@700&family=Oswald:wght@700&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:wght@700&family=Righteous&family=Roboto+Slab:wght@700&family=Space+Mono&family=Vollkorn:wght@700&display=swap');
-        
-        /* Ensures the thumb of the range input is styled */
-        input[type=range] {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 8px;
-            background: #4A4A4A;
-            border-radius: 4px;
-            margin: 10px 0;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #4CAF50;
-            cursor: pointer;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        :root {
+            --bg: #f5f6f8;
+            --fg: #1a1d24;
+            --card: #ffffff;
+            --card-fg: #1a1d24;
+            --primary: #6366f1;
+            --primary-fg: #ffffff;
+            --secondary: #e8eaed;
+            --secondary-fg: #2d3342;
+            --muted: #e8eaed;
+            --muted-fg: #6b7280;
+            --accent: #10b981;
+            --accent-fg: #ffffff;
+            --destructive: #ef4444;
+            --border: #dde0e4;
+            --radius: 0.75rem;
+            --shadow: 0 4px 20px -4px rgba(99, 102, 241, 0.15);
+            --shadow-card: 0 8px 30px -8px rgba(26, 29, 36, 0.1);
         }
 
-        .control-group {
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: var(--muted-fg);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
             margin-bottom: 1.5rem;
+            background: var(--card);
+            padding: 0.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-card);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: none;
+            background: transparent;
+            color: var(--muted-fg);
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: calc(var(--radius) - 0.25rem);
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background: var(--secondary);
+            color: var(--fg);
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: var(--primary-fg);
+        }
+
+        .panel {
+            display: none;
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-card);
+        }
+
+        .panel.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1.25rem;
+            border: none;
+            border-radius: calc(var(--radius) - 0.25rem);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--primary-fg);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: var(--secondary-fg);
+        }
+
+        .btn-secondary:hover {
+            background: var(--muted);
+        }
+
+        .btn-accent {
+            background: var(--accent);
+            color: var(--accent-fg);
+        }
+
+        .btn-destructive {
+            background: var(--destructive);
+            color: white;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--fg);
+        }
+
+        .btn-outline:hover {
+            background: var(--secondary);
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .input, .textarea, .select {
+            width: 100%;
+            padding: 0.625rem 0.875rem;
+            border: 1px solid var(--border);
+            border-radius: calc(var(--radius) - 0.25rem);
+            font-size: 0.875rem;
+            background: var(--card);
+            color: var(--fg);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .input:focus, .textarea:focus, .select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.375rem;
+            color: var(--fg);
+        }
+
+        .card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .option-item {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .option-item .input {
+            flex: 1;
+        }
+
+        .color-picker-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .color-picker {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .color-picker input[type="color"] {
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--border);
             border-radius: 0.5rem;
-            background-color: #3f3f46; /* Tailwind gray-700 */
-        }
-        
-        /* Style for temporary error message */
-        .error-message {
-            z-index: 1000;
-            animation: fadeInOut 5s forwards;
+            cursor: pointer;
+            padding: 0;
         }
 
-        @keyframes fadeInOut {
-            0% { opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { opacity: 0; }
+        .color-picker input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 2px;
         }
 
-        /* FIX: Cover preview responsive sizing */
-        #cover-preview-container {
-            max-height: calc(100vh - 6rem);
-            width: auto;
-            height: auto;
+        .color-picker input[type="color"]::-webkit-color-swatch {
+            border-radius: 0.25rem;
+            border: none;
         }
 
-        /* Ensure the preview wrapper centers and constrains properly */
-        .preview-wrapper {
+        .color-picker label {
+            font-size: 0.875rem;
+            color: var(--muted-fg);
+        }
+
+        .preview-container {
+            background: var(--bg);
+            border-radius: var(--radius);
+            padding: 2rem;
+            min-height: 400px;
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100%;
-            padding: 1rem;
         }
 
-        /* @media print for browser printing consistency */
-        @media print {
-            /* Hide controls and general page elements */
-            #controls {
-                display: none !important;
-            }
+        .quiz-preview {
+            width: 100%;
+            max-width: 500px;
+            padding: 2rem;
+            border-radius: var(--radius);
+            text-align: center;
+        }
 
-            /* Ensure the cover preview container takes up the page and centers */
-            .max-w-6xl {
-                max-width: 100% !important;
-                display: block !important;
-            }
-            .lg\:col-span-2 {
-                width: 100% !important;
-                flex: 1 1 100% !important;
-                display: block !important;
-            }
-            .gap-8 {
-                gap: 0 !important;
-            }
+        .quiz-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
 
-            /* The cover element itself must scale correctly */
-            #cover-preview-container {
-                max-width: 100% !important; 
-                width: 100% !important;
-                margin: 0 auto; 
-                /* Remove box shadows for clean print */
-                box-shadow: none !important;
+        .quiz-description {
+            margin-bottom: 1.5rem;
+            opacity: 0.9;
+        }
+
+        .quiz-options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .quiz-option {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .quiz-option:hover {
+            transform: translateY(-2px);
+        }
+
+        .quiz-progress {
+            margin-bottom: 1.5rem;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            opacity: 0.8;
+        }
+
+        .code-block {
+            background: #1e1e2e;
+            color: #cdd6f4;
+            padding: 1rem;
+            border-radius: var(--radius);
+            overflow-x: auto;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.75rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .export-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--fg);
+            color: var(--bg);
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-card);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--muted-fg);
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
             }
             
-            /* Crucial: Ensure the image maintains aspect ratio on print */
-            #cover-image {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                object-position: center;
-                display: block;
+            .tabs {
+                flex-wrap: wrap;
             }
+            
+            .tab-btn {
+                flex: 1 1 45%;
+            }
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 9999px;
+            background: var(--primary);
+            color: var(--primary-fg);
+        }
+
+        .badge-secondary {
+            background: var(--secondary);
+            color: var(--secondary-fg);
+        }
+
+        .scroll-area {
+            max-height: calc(100vh - 400px);
+            overflow-y: auto;
+        }
+
+        .scroll-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scroll-area::-webkit-scrollbar-track {
+            background: var(--muted);
+            border-radius: 3px;
+        }
+
+        .scroll-area::-webkit-scrollbar-thumb {
+            background: var(--muted-fg);
+            border-radius: 3px;
+            opacity: 0.3;
         }
     </style>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const controls = {
-                // Content
-                subHeadlineInput: document.getElementById('sub-headline-input'), 
-                headlineInput: document.getElementById('headline-input'),
-                sloganInput: document.getElementById('slogan-input'),
-                imageFileInput: document.getElementById('image-file-input'), 
-                
-                // Logo
-                logoFileInput: document.getElementById('logo-file-input'), 
-                logoSize: document.getElementById('logo-size'),
-                
-                // Layout
-                imagePosition: document.getElementById('image-position'),
-
-                // Background/Gradient
-                bgColor: document.getElementById('bg-color'), 
-                bgColor2: document.getElementById('bg-color-2'), 
-                gradientDirection: document.getElementById('gradient-direction'), 
-                
-                // Image Effects
-                overlayColor: document.getElementById('overlay-color'),
-                overlayOpacity: document.getElementById('overlay-opacity'),
-                grayscaleToggle: document.getElementById('grayscale-toggle'),
-
-                // Divider Controls
-                dividerColor: document.getElementById('divider-color'),
-                dividerThickness: document.getElementById('divider-thickness'),
-                
-                // Border Controls (NEW)
-                borderToggle: document.getElementById('border-toggle'),
-                borderColor: document.getElementById('border-color'),
-                borderWidth: document.getElementById('border-width'),
-                
-                // Sub-Headline Styles (Updated with Position)
-                subHeadlinePosition: document.getElementById('sub-headline-position'), // NEW
-                subHeadlineColor: document.getElementById('sub-headline-color'),
-                subHeadlineFont: document.getElementById('sub-headline-font'),
-                subHeadlineSize: document.getElementById('sub-headline-size'),
-
-                // Headline Styles
-                headlineColor: document.getElementById('headline-color'),
-                headlineFont: document.getElementById('headline-font'),
-                headlineSize: document.getElementById('headline-size'),
-                
-                // Slogan Styles
-                sloganColor: document.getElementById('slogan-color'),
-                sloganFont: document.getElementById('slogan-font'),
-                sloganSize: document.getElementById('slogan-size'),
-            };
-
-            const previewElements = {
-                coverPreviewContainer: document.getElementById('cover-preview-container'),
-                coverPreview: document.getElementById('cover-preview'),
-                imageSection: document.getElementById('image-section'),
-                coverImage: document.getElementById('cover-image'),
-                // Image Overlay
-                imageOverlay: document.getElementById('image-overlay'),
-                textSection: document.getElementById('text-section'),
-                
-                // Divider Element
-                dividerLine: document.getElementById('divider-line'), 
-                
-                // Text Elements
-                logoImage: document.getElementById('logo-image'), 
-                subHeadlineText: document.getElementById('sub-headline-text'), 
-                headline: document.getElementById('headline'),
-                slogan: document.getElementById('slogan'),
-
-                // Displays
-                headlineSizeDisplay: document.getElementById('headline-size-display'),
-                sloganSizeDisplay: document.getElementById('slogan-size-display'),
-                subHeadlineSizeDisplay: document.getElementById('sub-headline-size-display'),
-                dividerThicknessDisplay: document.getElementById('divider-thickness-display'), 
-                logoSizeDisplay: document.getElementById('logo-size-display'),
-                overlayOpacityDisplay: document.getElementById('overlay-opacity-display'),
-                borderWidthDisplay: document.getElementById('border-width-display'),
-                downloadPngBtn: document.getElementById('download-png-btn'),
-                downloadJpgBtn: document.getElementById('download-jpg-btn'),
-            };
-
-            const fontMap = {
-                'inter': 'Inter, sans-serif',
-                'serif': 'Playfair Display, serif',
-                'mono': 'Space Mono, monospace',
-                'oswald': 'Oswald, sans-serif',
-                'pacifico': 'Pacifico, cursive',
-                'slab': 'Roboto Slab, serif',
-                'lobster': 'Lobster, cursive',
-                'lora': 'Lora, serif',
-                'montserrat': 'Montserrat, sans-serif',
-                'fjalla': 'Fjalla One, sans-serif',
-                'marker': 'Permanent Marker, cursive',
-                'bebas': 'Bebas Neue, sans-serif',
-                'dancing': 'Dancing Script, cursive',
-                'righteous': 'Righteous, cursive',
-                'vollkorn': 'Vollkorn, serif',
-            };
-
-            const hexToRgba = (hex, alpha) => {
-                const r = parseInt(hex.slice(1, 3), 16);
-                const g = parseInt(hex.slice(3, 5), 16);
-                const b = parseInt(hex.slice(5, 7), 16);
-                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            };
-            
-            // Store original image data for proper export
-            let originalImageData = null;
-            
-            /**
-             * Updates the cover design based on current control values.
-             */
-            function updateCover() {
-                const position = controls.imagePosition.value;
-
-                // 1. Layout Control: Set Order and Ratio
-                previewElements.coverPreview.classList.remove('flex-col', 'flex-col-reverse');
-                if (position.includes('bottom')) {
-                    previewElements.coverPreview.classList.add('flex-col-reverse');
-                } else {
-                    previewElements.coverPreview.classList.add('flex-col');
-                }
-
-                if (position.includes('2-3')) {
-                    previewElements.imageSection.style.flexGrow = '2';
-                    previewElements.textSection.style.flexGrow = '1';
-                } else {
-                    previewElements.imageSection.style.flexGrow = '1';
-                    previewElements.textSection.style.flexGrow = '1';
-                }
-
-                // 2. Text Section Background (Gradient UPDATED)
-                const color1 = controls.bgColor.value;
-                const color2 = controls.bgColor2.value;
-                const direction = controls.gradientDirection.value;
-
-                if (direction === 'solid') {
-                    previewElements.textSection.style.backgroundImage = 'none';
-                    previewElements.textSection.style.backgroundColor = color1;
-                } else {
-                    previewElements.textSection.style.backgroundImage = `linear-gradient(${direction}, ${color1}, ${color2})`;
-                    previewElements.textSection.style.backgroundColor = color1; // Fallback
-                }
-
-
-                // 3. Divider Line Updates
-                const thickness = controls.dividerThickness.value;
-                previewElements.dividerLine.style.backgroundColor = controls.dividerColor.value;
-                previewElements.dividerLine.style.height = `${thickness}px`;
-                previewElements.dividerThicknessDisplay.textContent = `${thickness}px (Set to 0 to hide)`;
-
-                // 4. Logo Updates
-                const logoHeight = controls.logoSize.value;
-                previewElements.logoImage.style.maxHeight = `${logoHeight}px`;
-                previewElements.logoSizeDisplay.textContent = `${logoHeight}px (Set to 0 to hide logo)`;
-                
-                if (parseInt(logoHeight) > 0) {
-                    previewElements.logoImage.classList.remove('hidden');
-                } else {
-                    previewElements.logoImage.classList.add('hidden');
-                }
-                
-                // 5. Image Effects (NEW)
-                const opacity = controls.overlayOpacity.value / 100;
-                const overlayColor = controls.overlayColor.value;
-                const grayscale = controls.grayscaleToggle.checked;
-                
-                // Grayscale Filter on Image
-                previewElements.coverImage.style.filter = grayscale ? 'grayscale(100%)' : 'none';
-                
-                // Color Overlay on separate div
-                previewElements.imageOverlay.style.backgroundColor = hexToRgba(overlayColor, opacity);
-                previewElements.overlayOpacityDisplay.textContent = `${controls.overlayOpacity.value}%`;
-
-                // 6. Sub-Headline Updates (NEW: Position and Styles)
-                previewElements.subHeadlineText.textContent = controls.subHeadlineInput.value;
-                previewElements.subHeadlineText.style.color = controls.subHeadlineColor.value;
-                previewElements.subHeadlineText.style.fontFamily = fontMap[controls.subHeadlineFont.value];
-                previewElements.subHeadlineText.style.fontSize = `${controls.subHeadlineSize.value}px`;
-                previewElements.subHeadlineSizeDisplay.textContent = `${controls.subHeadlineSize.value}px`;
-                
-                // Position logic: Apply order-last to move it below slogan
-                const subHeadlinePosition = controls.subHeadlinePosition.value;
-                previewElements.subHeadlineText.classList.remove('order-last'); 
-                if (subHeadlinePosition === 'bottom') {
-                    previewElements.subHeadlineText.classList.add('order-last');
-                }
-
-                // 7. Headline Updates
-                previewElements.headline.textContent = controls.headlineInput.value;
-                previewElements.headline.style.color = controls.headlineColor.value;
-                previewElements.headline.style.fontFamily = fontMap[controls.headlineFont.value];
-                previewElements.headline.style.fontSize = `${controls.headlineSize.value}px`;
-                previewElements.headlineSizeDisplay.textContent = `${controls.headlineSize.value}px`;
-                
-                // 8. Slogan Updates
-                previewElements.slogan.textContent = controls.sloganInput.value;
-                previewElements.slogan.style.color = controls.sloganColor.value;
-                previewElements.slogan.style.fontFamily = fontMap[controls.sloganFont.value];
-                previewElements.slogan.style.fontSize = `${controls.sloganSize.value}px`;
-                previewElements.sloganSizeDisplay.textContent = `${controls.sloganSize.value}px`;
-                
-                // 9. Border Updates (NEW)
-                const borderEnabled = controls.borderToggle.checked;
-                const borderColor = controls.borderColor.value;
-                const borderWidth = controls.borderWidth.value;
-                
-                if (borderEnabled) {
-                    previewElements.coverPreviewContainer.style.border = `${borderWidth}px solid ${borderColor}`;
-                } else {
-                    previewElements.coverPreviewContainer.style.border = 'none';
-                }
-                previewElements.borderWidthDisplay.textContent = `${borderWidth}px`;
-            }
-
-            /**
-             * Converts the cover preview element into a high-resolution file (PNG or JPEG) and triggers download.
-             * FIX: Properly maintains aspect ratio by using background-image approach during capture.
-             */
-            async function generateAndDownload(format) {
-                const elementToCapture = previewElements.coverPreviewContainer;
-                const targetWidthPx = 2480; 
-                // Calculate height based on the actual element's aspect ratio to prevent distortion
-                const aspectRatio = elementToCapture.offsetHeight / elementToCapture.offsetWidth;
-                const targetHeightPx = Math.round(targetWidthPx * aspectRatio);
-
-                const scale = targetWidthPx / elementToCapture.offsetWidth;
-                
-                const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
-                const quality = format === 'jpg' ? 0.95 : 1.0; 
-                const filename = `cookbook_cover.${format}`;
-
-                // FIX: Store original image styles and temporarily modify for capture
-                const imageElement = previewElements.coverImage;
-                const imageSectionElement = previewElements.imageSection;
-                
-                // Store original styles
-                const originalImageStyle = imageElement.getAttribute('style') || '';
-                const originalSectionStyle = imageSectionElement.getAttribute('style') || '';
-                const originalImageClass = imageElement.className;
-                
-                // FIX: Get the EXACT computed dimensions BEFORE any changes
-                const sectionRect = imageSectionElement.getBoundingClientRect();
-                const sectionHeight = sectionRect.height;
-                const originalFlexGrow = imageSectionElement.style.flexGrow;
-                
-                // FIX: Convert the image to a background-image approach for proper capture
-                const imgSrc = imageElement.src;
-                const grayscale = controls.grayscaleToggle.checked;
-                
-                // FIX: Set explicit height on image section BEFORE hiding the image
-                // This prevents the flex container from collapsing
-                imageSectionElement.style.height = `${sectionHeight}px`;
-                imageSectionElement.style.flexGrow = '0';
-                imageSectionElement.style.flexShrink = '0';
-                
-                // Hide the img element and use background-image on the section
-                imageElement.style.display = 'none';
-                imageSectionElement.style.backgroundImage = `url('${imgSrc}')`;
-                imageSectionElement.style.backgroundSize = 'cover';
-                imageSectionElement.style.backgroundPosition = 'center';
-                imageSectionElement.style.backgroundRepeat = 'no-repeat';
-                if (grayscale) {
-                    imageSectionElement.style.filter = 'grayscale(100%)';
-                }
-
-                try {
-                    const canvas = await html2canvas(elementToCapture, {
-                        scale: scale,
-                        useCORS: true,
-                        allowTaint: true,
-                        logging: false,
-                        width: elementToCapture.offsetWidth,
-                        height: elementToCapture.offsetHeight,
-                    });
-                    
-                    // Use the canvas directly from html2canvas - it's already at the correct proportions
-                    const dataUrl = canvas.toDataURL(mimeType, quality);
-                    const link = document.createElement('a');
-                    link.download = filename;
-                    link.href = dataUrl;
-                    link.click();
-                } catch (error) {
-                    console.error('Error generating image:', error);
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'error-message fixed top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white p-4 rounded-lg shadow-xl';
-                    errorDiv.textContent = 'Error generating image. Please try again or use a different image.';
-                    document.body.appendChild(errorDiv);
-                    setTimeout(() => errorDiv.remove(), 5000); 
-                } finally {
-                    // FIX: Restore ALL original styles after capture
-                    imageElement.style.display = '';
-                    imageElement.setAttribute('style', originalImageStyle);
-                    imageElement.className = originalImageClass;
-                    
-                    // Remove the temporary styles
-                    imageSectionElement.style.height = '';
-                    imageSectionElement.style.flexShrink = '';
-                    imageSectionElement.style.backgroundImage = '';
-                    imageSectionElement.style.backgroundSize = '';
-                    imageSectionElement.style.backgroundPosition = '';
-                    imageSectionElement.style.backgroundRepeat = '';
-                    imageSectionElement.style.filter = '';
-                    
-                    // Restore flex-grow
-                    imageSectionElement.style.flexGrow = originalFlexGrow || '';
-                }
-            }
-
-
-            // --- Dedicated Image File Handler ---
-            controls.imageFileInput.addEventListener('change', function(event) {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        previewElements.coverImage.src = e.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    previewElements.coverImage.src = "https://placehold.co/2480x3508/4CAF50/FFFFFF?text=Upload+Recipe+Image";
-                }
-            });
-
-            // --- Dedicated Logo File Handler ---
-            controls.logoFileInput.addEventListener('change', function(event) {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        previewElements.logoImage.src = e.target.result;
-                        if (controls.logoSize.value === '0') {
-                            controls.logoSize.value = 50;
-                        }
-                        updateCover(); 
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    previewElements.logoImage.src = "https://placehold.co/100x40/000000/FFFFFF?text=LOGO";
-                    controls.logoSize.value = 0; // Hide logo if file is cleared
-                    updateCover(); 
-                }
-            });
-
-            // Attach event listeners for all controls
-            [
-                controls.headlineInput, controls.sloganInput, controls.subHeadlineInput, 
-                controls.imagePosition, 
-                controls.bgColor, controls.bgColor2, controls.gradientDirection, 
-                controls.dividerColor, controls.dividerThickness, 
-                controls.logoSize,
-                // New/Updated controls
-                controls.subHeadlinePosition, controls.subHeadlineColor, controls.subHeadlineFont, controls.subHeadlineSize, 
-                controls.headlineColor, controls.headlineFont, controls.headlineSize, 
-                controls.sloganColor, controls.sloganFont, controls.sloganSize,
-                controls.overlayColor, controls.overlayOpacity, controls.grayscaleToggle,
-                // Border controls (NEW)
-                controls.borderToggle, controls.borderColor, controls.borderWidth
-            ]
-            .forEach(control => {
-                control.addEventListener('input', updateCover);
-                control.addEventListener('change', updateCover); 
-            });
-
-            // Attach listeners for the download buttons
-            previewElements.downloadPngBtn.addEventListener('click', () => generateAndDownload('png'));
-            previewElements.downloadJpgBtn.addEventListener('click', () => generateAndDownload('jpg'));
-
-            // Initial call to set up the cover with default values
-            updateCover();
-        });
-    </script>
 </head>
-<body class="bg-primary-bg min-h-screen p-4 md:p-8 font-inter">
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Quiz Blueprint Builder</h1>
+            <p>Create beautiful product recommendation quizzes</p>
+        </div>
 
-    <!-- FIXED: Layout with proper height constraints -->
-    <div class="max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-4rem)]">
-        
-        <!-- Controls Panel - Scrollable on desktop -->
-        <div id="controls" class="lg:w-2/5 w-full p-6 bg-gray-800 rounded-xl shadow-2xl overflow-y-auto lg:h-full">
-            <h2 class="text-3xl font-bold text-white mb-6 border-b border-gray-700 pb-3">Cover Customization</h2>
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="builder">📝 Builder</button>
+            <button class="tab-btn" data-tab="customize">🎨 Customize</button>
+            <button class="tab-btn" data-tab="preview">👁️ Preview</button>
+            <button class="tab-btn" data-tab="export">📦 Export</button>
+        </div>
 
-            <!-- Download Buttons -->
-            <div class="control-group p-0 rounded-lg">
-                <button id="download-png-btn" class="w-full p-3 text-white font-bold text-lg bg-green-700 rounded-t-lg hover:bg-green-600 transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50">
-                    Download PNG (A4)
-                </button>
-                <button id="download-jpg-btn" class="w-full p-3 text-white font-bold text-lg bg-yellow-600 rounded-b-lg hover:bg-yellow-500 transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-yellow-500 focus:ring-opacity-50">
-                    Download JPG (A4)
-                </button>
-            </div>
-            
-            <!-- Text & Content Controls (REORDERED FOR CLARITY) -->
-            <div class="control-group">
-                <h3 class="text-xl font-semibold text-white mb-3">Content</h3>
-                
-                <!-- MOVED TO TOP: Headline Text -->
-                <label for="headline-input" class="block text-sm font-medium text-gray-300 mb-1">Headline Text</label>
-                <input type="text" id="headline-input" value="MONTH TEN" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
-
-                <!-- MOVED TO SECOND: Sub-Headline Text -->
-                <label for="sub-headline-input" class="block text-sm font-medium text-gray-300 mb-1">Sub-Headline Text</label>
-                <input type="text" id="sub-headline-input" value="THE HEALTHY RECIPE COLLECTION" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
-                
-                <!-- REMAINS AT BOTTOM: Slogan / Description -->
-                <label for="slogan-input" class="block text-sm font-medium text-gray-300 mb-1">Slogan / Description</label>
-                <textarea id="slogan-input" rows="3" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">Discover 15 easy, healthy and tasty recipes, including: breakfast, lunch, dinner, treat and smoothies</textarea>
-                
-                <!-- Image File Input -->
-                <label for="image-file-input" class="block text-sm font-medium text-gray-300 mb-1 mt-4">Upload Main Recipe Image</label>
-                <input type="file" id="image-file-input" accept="image/*" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-secondary-bg file:text-white hover:file:bg-green-600">
-            </div>
-
-            <!-- Logo Controls -->
-            <div class="control-group">
-                <h3 class="text-xl font-semibold text-white mb-3">Logo (Above Headline)</h3>
-                
-                <!-- Logo Image File Input -->
-                <label for="logo-file-input" class="block text-sm font-medium text-gray-300 mb-1 mt-4">Upload Logo File</label>
-                <input type="file" id="logo-file-input" accept="image/*" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-secondary-bg file:text-white hover:file:bg-green-600">
-
-                <label for="logo-size" class="block text-sm font-medium text-gray-300 mb-1 mt-4">Logo Max Height (px)</label>
-                <input type="range" id="logo-size" min="0" max="100" value="50" class="range-input">
-                <span id="logo-size-display" class="text-xs text-gray-400">50px (Set to 0 to hide logo)</span>
-            </div>
-
-            <!-- Layout Controls -->
-            <div class="control-group">
-                <h3 class="text-xl font-semibold text-white mb-3">Layout</h3>
-                <label for="image-position" class="block text-sm font-medium text-gray-300 mb-2">Image Position</label>
-                <select id="image-position" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
-                    <option value="top">Image at Top (50/50 Split)</option>
-                    <option value="bottom">Image at Bottom (50/50 Split)</option>
-                    <option value="top-2-3">Image at Top (2/3 Size)</option>
-                    <option value="bottom-2-3">Image at Bottom (2/3 Size)</option>
-                </select>
-            </div>
-
-            <!-- Border Controls (NEW) -->
-            <div class="control-group">
-                <h3 class="text-xl font-semibold text-white mb-3">Border</h3>
-                
-                <div class="flex items-center mb-4">
-                    <input type="checkbox" id="border-toggle" class="h-4 w-4 text-secondary-bg rounded border-gray-500 focus:ring-secondary-bg">
-                    <label for="border-toggle" class="ml-2 block text-sm font-medium text-gray-300">Enable Border</label>
+        <!-- Builder Panel -->
+        <div id="builder" class="panel active">
+            <div class="section">
+                <div class="section-title">
+                    <span>Quiz Settings</span>
                 </div>
-                
-                <label for="border-color" class="block text-sm font-medium text-gray-300 mb-1">Border Color</label>
-                <input type="color" id="border-color" value="#FFFFFF" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
-                
-                <label for="border-width" class="block text-sm font-medium text-gray-300 mb-1">Border Width (px)</label>
-                <input type="range" id="border-width" min="1" max="20" value="5" class="range-input">
-                <span id="border-width-display" class="text-xs text-gray-400">5px</span>
-            </div>
-
-            <!-- Style Controls (UPDATED for Gradient) -->
-            <div class="control-group">
-                <h3 class="text-xl font-semibold text-white mb-3">Colors & Background (Gradient)</h3>
-
-                <label for="bg-color" class="block text-sm font-medium text-gray-300 mb-1">Text Section Color 1 (Primary)</label>
-                <input type="color" id="bg-color" value="#4CAF50" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
-
-                <label for="bg-color-2" class="block text-sm font-medium text-gray-300 mb-1">Text Section Color 2 (Gradient)</label>
-                <input type="color" id="bg-color-2" value="#2C7A7B" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
-                
-                <label for="gradient-direction" class="block text-sm font-medium text-gray-300 mb-1">Gradient Direction</label>
-                <select id="gradient-direction" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
-                    <option value="solid">Solid Color</option>
-                    <option value="to top">To Top</option>
-                    <option value="to bottom" selected>To Bottom</option>
-                    <option value="to right">To Right</option>
-                    <option value="to left">To Left</option>
-                </select>
-            </div>
-            
-            <!-- Image Effects (NEW) -->
-            <div class="control-group">
-                <h3 class="text-xl font-semibold text-white mb-3">Image Effects</h3>
-                
-                <label for="overlay-color" class="block text-sm font-medium text-gray-300 mb-1">Overlay Color</label>
-                <input type="color" id="overlay-color" value="#000000" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
-
-                <label for="overlay-opacity" class="block text-sm font-medium text-gray-300 mb-1">Overlay Opacity (%)</label>
-                <input type="range" id="overlay-opacity" min="0" max="100" value="0" class="range-input">
-                <span id="overlay-opacity-display" class="text-xs text-gray-400">0%</span>
-
-                <div class="flex items-center mt-4">
-                    <input type="checkbox" id="grayscale-toggle" class="h-4 w-4 text-secondary-bg rounded border-gray-500 focus:ring-secondary-bg">
-                    <label for="grayscale-toggle" class="ml-2 block text-sm font-medium text-gray-300">Apply Grayscale Filter</label>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Quiz Title</label>
+                        <input type="text" class="input" id="quizTitle" placeholder="Find Your Perfect Product">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Button Text</label>
+                        <input type="text" class="input" id="startButton" placeholder="Start Quiz">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="textarea" id="quizDescription" placeholder="Answer a few questions to find the perfect product for you!"></textarea>
                 </div>
             </div>
 
-            <!-- Divider Line Styles -->
-            <div class="control-group">
-                <h3 class="text-xl font-semibold text-white mb-3">Divider Line Styles</h3>
-                
-                <label for="divider-color" class="block text-sm font-medium text-gray-300 mb-1">Line Color</label>
-                <input type="color" id="divider-color" value="#FFFFFF" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
-                
-                <label for="divider-thickness" class="block text-sm font-medium text-gray-300 mb-1">Thickness (px)</label>
-                <input type="range" id="divider-thickness" min="0" max="10" value="3" class="range-input">
-                <span id="divider-thickness-display" class="text-xs text-gray-400">3px (Set to 0 to hide)</span>
+            <div class="section">
+                <div class="section-title">
+                    <span>Questions</span>
+                    <button class="btn btn-primary btn-sm" onclick="addQuestion()">+ Add Question</button>
+                </div>
+                <div id="questionsList" class="scroll-area"></div>
             </div>
 
-            <!-- Sub-Headline Styles (NEW) -->
-            <div class="control-group">
-                <h3 class="text-xl font-semibold text-white mb-3">Sub-Headline Styles</h3>
-                
-                <!-- NEW CONTROL: Position -->
-                <label for="sub-headline-position" class="block text-sm font-medium text-gray-300 mb-1">Position</label>
-                <select id="sub-headline-position" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
-                    <option value="top">Above Headline (Default)</option>
-                    <option value="bottom">Below Slogan</option>
-                </select>
-                
-                <label for="sub-headline-color" class="block text-sm font-medium text-gray-300 mb-1">Color</label>
-                <input type="color" id="sub-headline-color" value="#FFFFFF" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
-
-                <label for="sub-headline-font" class="block text-sm font-medium text-gray-300 mb-1">Font Family</label>
-                <select id="sub-headline-font" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
-                    <option value="inter">Inter (Sans-Serif, Default)</option>
-                    <option value="serif">Playfair Display (Elegant Serif)</option>
-                    <option value="mono">Space Mono (Monospace)</option>
-                    <option value="oswald">Oswald (Condensed Sans)</option>
-                    <option value="pacifico">Pacifico (Fun Script)</option>
-                    <option value="slab">Roboto Slab (Slab Serif)</option>
-                    <option value="lobster">Lobster (Bold Script)</option>
-                    <option value="lora">Lora (Classic Serif)</option>
-                    <option value="montserrat">Montserrat (Geometric Sans)</option>
-                    <option value="fjalla">Fjalla One (Ultra Condensed)</option>
-                    <option value="marker">Permanent Marker (Handwritten)</option>
-                    <option value="bebas">Bebas Neue (All Caps Display)</option>
-                    <option value="dancing">Dancing Script (Flowing Script)</option>
-                    <option value="righteous">Righteous (Geometric Display)</option>
-                    <option value="vollkorn">Vollkorn (Strong Serif)</option>
-                </select>
-
-                <label for="sub-headline-size" class="block text-sm font-medium text-gray-300 mb-1">Size (px)</label>
-                <input type="range" id="sub-headline-size" min="10" max="25" value="14" class="range-input">
-                <span id="sub-headline-size-display" class="text-xs text-gray-400">14px</span>
-            </div>
-            
-            <div class="control-group">
-                <h3 class="text-xl font-semibold text-white mb-3">Headline Styles</h3>
-                
-                <label for="headline-color" class="block text-sm font-medium text-gray-300 mb-1">Color</label>
-                <input type="color" id="headline-color" value="#FFFFFF" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
-                
-                <label for="headline-font" class="block text-sm font-medium text-gray-300 mb-1">Font Family (15 Options)</label>
-                <select id="headline-font" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
-                    <option value="inter">Inter (Sans-Serif, Default)</option>
-                    <option value="serif">Playfair Display (Elegant Serif)</option>
-                    <option value="mono">Space Mono (Monospace)</option>
-                    <option value="oswald">Oswald (Condensed Sans)</option>
-                    <option value="pacifico">Pacifico (Fun Script)</option>
-                    <option value="slab">Roboto Slab (Slab Serif)</option>
-                    <option value="lobster">Lobster (Bold Script)</option>
-                    <option value="lora">Lora (Classic Serif)</option>
-                    <option value="montserrat">Montserrat (Geometric Sans)</option>
-                    <option value="fjalla">Fjalla One (Ultra Condensed)</option>
-                    <option value="marker">Permanent Marker (Handwritten)</option>
-                    <option value="bebas">Bebas Neue (All Caps Display)</option>
-                    <option value="dancing">Dancing Script (Flowing Script)</option>
-                    <option value="righteous">Righteous (Geometric Display)</option>
-                    <option value="vollkorn">Vollkorn (Strong Serif)</option>
-                </select>
-
-                <label for="headline-size" class="block text-sm font-medium text-gray-300 mb-1">Size (px)</label>
-                <input type="range" id="headline-size" min="30" max="100" value="64" class="range-input">
-                <span id="headline-size-display" class="text-xs text-gray-400">64px</span>
-            </div>
-
-            <div class="control-group">
-                <h3 class="text-xl font-semibold text-white mb-3">Slogan Styles</h3>
-                
-                <label for="slogan-color" class="block text-sm font-medium text-gray-300 mb-1">Color</label>
-                <input type="color" id="slogan-color" value="#FFFFFF" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
-                
-                <label for="slogan-font" class="block text-sm font-medium text-gray-300 mb-1">Font Family (15 Options)</label>
-                <select id="slogan-font" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
-                    <option value="inter" selected>Inter (Sans-Serif, Default)</option>
-                    <option value="serif">Playfair Display (Elegant Serif)</option>
-                    <option value="mono">Space Mono (Monospace)</option>
-                    <option value="oswald">Oswald (Condensed Sans)</option>
-                    <option value="pacifico">Pacifico (Fun Script)</option>
-                    <option value="slab">Roboto Slab (Slab Serif)</option>
-                    <option value="lobster">Lobster (Bold Script)</option>
-                    <option value="lora">Lora (Classic Serif)</option>
-                    <option value="montserrat">Montserrat (Geometric Sans)</option>
-                    <option value="fjalla">Fjalla One (Ultra Condensed)</option>
-                    <option value="marker">Permanent Marker (Handwritten)</option>
-                    <option value="bebas">Bebas Neue (All Caps Display)</option>
-                    <option value="dancing">Dancing Script (Flowing Script)</option>
-                    <option value="righteous">Righteous (Geometric Display)</option>
-                    <option value="vollkorn">Vollkorn (Strong Serif)</option>
-                </select>
-
-                <label for="slogan-size" class="block text-sm font-medium text-gray-300 mb-1">Size (px)</label>
-                <input type="range" id="slogan-size" min="10" max="40" value="18" class="range-input">
-                <span id="slogan-size-display" class="text-xs text-gray-400">18px</span>
+            <div class="section">
+                <div class="section-title">
+                    <span>Results</span>
+                    <button class="btn btn-accent btn-sm" onclick="addResult()">+ Add Result</button>
+                </div>
+                <div id="resultsList" class="scroll-area"></div>
             </div>
         </div>
 
-        <!-- Cover Preview Panel - FIXED: Now properly constrained to viewport -->
-        <div class="lg:w-3/5 w-full flex-shrink-0 flex items-center justify-center p-2 lg:h-full">
-            <!-- FIXED: Added max-height constraint to ensure full cover is visible -->
-            <div id="cover-preview-container" class="aspect-[1/1.414] shadow-2xl overflow-hidden transition-all duration-300" style="box-sizing: border-box;">
-                
-                <div id="cover-preview" class="flex flex-col h-full w-full">
-                    
-                    <!-- Image Section (UPDATED for Overlay and Grayscale) -->
-                    <div id="image-section" class="overflow-hidden relative" style="flex-grow: 1;">
-                        
-                        <!-- Image Overlay Layer -->
-                        <div id="image-overlay" class="absolute inset-0 z-10 transition-all duration-300 pointer-events-none" style="background-color: rgba(0,0,0,0);"></div>
-
-                        <!-- Placeholder URL adjusted for A4 aspect ratio -->
-                        <img id="cover-image" class="w-full h-full object-cover transition-all duration-300" 
-                            src="https://placehold.co/2480x3508/4CAF50/FFFFFF?text=Upload+Recipe+Image" 
-                            alt="Cookbook Cover Image"
-                            onerror="this.onerror=null; this.src='https://placehold.co/2480x3508/FF5733/FFFFFF?text=Image+Load+Error'"
-                        >
+        <!-- Customize Panel -->
+        <div id="customize" class="panel">
+            <div class="section">
+                <div class="section-title">🎨 Quiz Colors</div>
+                <div class="color-picker-group">
+                    <div class="color-picker">
+                        <input type="color" id="colorBg" value="#6366f1">
+                        <label>Background</label>
                     </div>
-
-                    <!-- Divider Line -->
-                    <div id="divider-line" class="w-full transition-all duration-300" style="height: 3px; background-color: #FFFFFF;"></div>
-
-                    <!-- Text Section (UPDATED for Sub-Headline and Gradient) -->
-                    <!-- Added 'relative' to allow absolute positioning if needed, but using flex order instead -->
-                    <div id="text-section" class="flex flex-col justify-center items-center text-center p-8 transition-all duration-300" style="background-color: #4CAF50; flex-grow: 1;">
-                        
-                        <!-- Logo Image Slot (Source Order 1) -->
-                        <img id="logo-image" 
-                            src="https://placehold.co/100x40/000000/FFFFFF?text=LOGO" 
-                            alt="Cookbook Logo" 
-                            class="mb-2 object-contain hidden transition-all duration-300" 
-                            style="max-height: 50px;"
-                            onerror="this.onerror=null; this.src='https://placehold.co/100x40/FF5733/FFFFFF?text=Error'"
-                        />
-                        
-                        <!-- Sub-Headline Element (Source Order 2) - Order is dynamically set by JS -->
-                        <p id="sub-headline-text" class="text-white text-sm tracking-widest font-bold uppercase opacity-80 mb-1 transition-all duration-300" style="font-family: 'Inter', sans-serif; font-size: 14px; color: #FFFFFF;"></p>
-                        
-                        <!-- Headline (Source Order 3) -->
-                        <h1 id="headline" class="font-bold mb-4 leading-none transition-all duration-300" style="color: #FFFFFF; font-size: 64px; font-family: 'Inter', sans-serif;">MONTH TEN</h1>
-                        
-                        <!-- Slogan (Source Order 4) -->
-                        <p id="slogan" class="transition-all duration-300" style="color: #FFFFFF; font-size: 18px; font-family: 'Inter', sans-serif; opacity: 90%;">Discover 15 easy, healthy and tasty recipes, including: breakfast, lunch, dinner, treat and smoothies</p>
+                    <div class="color-picker">
+                        <input type="color" id="colorText" value="#ffffff">
+                        <label>Text Color</label>
+                    </div>
+                    <div class="color-picker">
+                        <input type="color" id="colorButton" value="#ffffff">
+                        <label>Button Background</label>
+                    </div>
+                    <div class="color-picker">
+                        <input type="color" id="colorButtonText" value="#6366f1">
+                        <label>Button Text</label>
+                    </div>
+                    <div class="color-picker">
+                        <input type="color" id="colorAccent" value="#10b981">
+                        <label>Accent Color</label>
+                    </div>
+                    <div class="color-picker">
+                        <input type="color" id="colorProgress" value="#ffffff">
+                        <label>Progress Bar</label>
                     </div>
                 </div>
+            </div>
 
+            <div class="section">
+                <div class="section-title">Preview</div>
+                <div class="preview-container">
+                    <div class="quiz-preview" id="colorPreview">
+                        <div class="quiz-title">Sample Quiz Title</div>
+                        <div class="quiz-description">This is how your quiz will look</div>
+                        <div class="quiz-options">
+                            <div class="quiz-option">Option A</div>
+                            <div class="quiz-option">Option B</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- Preview Panel -->
+        <div id="preview" class="panel">
+            <div class="preview-container">
+                <div id="quizPreviewContainer" class="quiz-preview"></div>
+            </div>
+            <div style="text-align: center; margin-top: 1rem;">
+                <button class="btn btn-secondary" onclick="resetPreview()">🔄 Restart Quiz</button>
+            </div>
+        </div>
+
+        <!-- Export Panel -->
+        <div id="export" class="panel">
+            <div class="section">
+                <div class="section-title">📦 Export Your Quiz</div>
+                <p style="color: var(--muted-fg); margin-bottom: 1rem;">Copy the code below or download as an HTML file. This code is completely standalone and can be embedded on any website.</p>
+                <div class="export-actions">
+                    <button class="btn btn-primary" onclick="copyCode()">📋 Copy Code</button>
+                    <button class="btn btn-accent" onclick="downloadCode()">⬇️ Download HTML</button>
+                </div>
+                <div class="code-block" id="exportCode"></div>
+            </div>
+        </div>
     </div>
 
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Quiz Data
+        let quizData = {
+            title: 'Find Your Perfect Product',
+            description: 'Answer a few questions to find the perfect product for you!',
+            startButton: 'Start Quiz',
+            colors: {
+                background: '#6366f1',
+                text: '#ffffff',
+                button: '#ffffff',
+                buttonText: '#6366f1',
+                accent: '#10b981',
+                progress: '#ffffff'
+            },
+            questions: [
+                {
+                    id: 'q1',
+                    text: 'What is your primary goal?',
+                    options: [
+                        { id: 'q1o1', text: 'Improve productivity', next: 'q2' },
+                        { id: 'q1o2', text: 'Save money', next: 'q2' },
+                        { id: 'q1o3', text: 'Learn something new', next: 'q2' }
+                    ]
+                },
+                {
+                    id: 'q2',
+                    text: 'How much time do you have?',
+                    options: [
+                        { id: 'q2o1', text: 'Less than 30 minutes', next: 'r1' },
+                        { id: 'q2o2', text: '1-2 hours', next: 'r2' },
+                        { id: 'q2o3', text: 'As much as needed', next: 'r3' }
+                    ]
+                }
+            ],
+            results: [
+                {
+                    id: 'r1',
+                    title: 'Quick Start Package',
+                    description: 'Perfect for busy people who want fast results.',
+                    ctaText: 'Get Started',
+                    ctaUrl: '#'
+                },
+                {
+                    id: 'r2',
+                    title: 'Standard Package',
+                    description: 'A balanced approach for most users.',
+                    ctaText: 'Learn More',
+                    ctaUrl: '#'
+                },
+                {
+                    id: 'r3',
+                    title: 'Premium Package',
+                    description: 'The complete solution for dedicated learners.',
+                    ctaText: 'View Details',
+                    ctaUrl: '#'
+                }
+            ]
+        };
+
+        let previewState = { screen: 'intro', currentQuestion: 0, answers: [] };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFromStorage();
+            renderQuestions();
+            renderResults();
+            updateFormFields();
+            updateColorPreview();
+            renderQuizPreview();
+            generateExportCode();
+
+            // Tab switching
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById(btn.dataset.tab).classList.add('active');
+                    
+                    if (btn.dataset.tab === 'preview') {
+                        resetPreview();
+                    }
+                    if (btn.dataset.tab === 'export') {
+                        generateExportCode();
+                    }
+                });
+            });
+
+            // Form field listeners
+            document.getElementById('quizTitle').addEventListener('input', (e) => {
+                quizData.title = e.target.value;
+                saveToStorage();
+            });
+            document.getElementById('quizDescription').addEventListener('input', (e) => {
+                quizData.description = e.target.value;
+                saveToStorage();
+            });
+            document.getElementById('startButton').addEventListener('input', (e) => {
+                quizData.startButton = e.target.value;
+                saveToStorage();
+            });
+
+            // Color listeners
+            ['Bg', 'Text', 'Button', 'ButtonText', 'Accent', 'Progress'].forEach(key => {
+                const el = document.getElementById('color' + key);
+                const colorKey = key === 'Bg' ? 'background' : key.charAt(0).toLowerCase() + key.slice(1);
+                el.addEventListener('input', (e) => {
+                    quizData.colors[colorKey] = e.target.value;
+                    updateColorPreview();
+                    saveToStorage();
+                });
+            });
+        });
+
+        function updateFormFields() {
+            document.getElementById('quizTitle').value = quizData.title;
+            document.getElementById('quizDescription').value = quizData.description;
+            document.getElementById('startButton').value = quizData.startButton;
+            document.getElementById('colorBg').value = quizData.colors.background;
+            document.getElementById('colorText').value = quizData.colors.text;
+            document.getElementById('colorButton').value = quizData.colors.button;
+            document.getElementById('colorButtonText').value = quizData.colors.buttonText;
+            document.getElementById('colorAccent').value = quizData.colors.accent;
+            document.getElementById('colorProgress').value = quizData.colors.progress;
+        }
+
+        function renderQuestions() {
+            const container = document.getElementById('questionsList');
+            if (quizData.questions.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No questions yet. Click "Add Question" to get started.</p></div>';
+                return;
+            }
+
+            container.innerHTML = quizData.questions.map((q, qi) => `
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Question ${qi + 1}</span>
+                        <button class="btn btn-destructive btn-sm" onclick="deleteQuestion(${qi})">Delete</button>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Question Text</label>
+                        <input type="text" class="input" value="${escapeHtml(q.text)}" onchange="updateQuestion(${qi}, 'text', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Options</label>
+                        <div class="options-list">
+                            ${q.options.map((o, oi) => `
+                                <div class="option-item">
+                                    <input type="text" class="input" value="${escapeHtml(o.text)}" onchange="updateOption(${qi}, ${oi}, 'text', this.value)" placeholder="Option text">
+                                    <select class="select" style="width: 150px;" onchange="updateOption(${qi}, ${oi}, 'next', this.value)">
+                                        <option value="">Next...</option>
+                                        ${getNextOptions(q.id, o.next)}
+                                    </select>
+                                    <button class="btn btn-outline btn-sm" onclick="deleteOption(${qi}, ${oi})">×</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button class="btn btn-secondary btn-sm" style="margin-top: 0.5rem;" onclick="addOption(${qi})">+ Add Option</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderResults() {
+            const container = document.getElementById('resultsList');
+            if (quizData.results.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No results yet. Click "Add Result" to create recommendations.</p></div>';
+                return;
+            }
+
+            container.innerHTML = quizData.results.map((r, ri) => `
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">
+                            <span class="badge badge-secondary">${r.id}</span>
+                            ${escapeHtml(r.title)}
+                        </span>
+                        <button class="btn btn-destructive btn-sm" onclick="deleteResult(${ri})">Delete</button>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Title</label>
+                            <input type="text" class="input" value="${escapeHtml(r.title)}" onchange="updateResult(${ri}, 'title', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">CTA Button Text</label>
+                            <input type="text" class="input" value="${escapeHtml(r.ctaText)}" onchange="updateResult(${ri}, 'ctaText', this.value)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="textarea" onchange="updateResult(${ri}, 'description', this.value)">${escapeHtml(r.description)}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CTA URL</label>
+                        <input type="text" class="input" value="${escapeHtml(r.ctaUrl)}" onchange="updateResult(${ri}, 'ctaUrl', this.value)" placeholder="https://...">
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getNextOptions(currentId, selectedValue) {
+            const options = [];
+            quizData.questions.forEach(q => {
+                if (q.id !== currentId) {
+                    options.push(`<option value="${q.id}" ${selectedValue === q.id ? 'selected' : ''}>→ ${q.text.substring(0, 30)}...</option>`);
+                }
+            });
+            quizData.results.forEach(r => {
+                options.push(`<option value="${r.id}" ${selectedValue === r.id ? 'selected' : ''}>✓ ${r.title}</option>`);
+            });
+            return options.join('');
+        }
+
+        function addQuestion() {
+            const id = 'q' + (quizData.questions.length + 1) + '_' + Date.now();
+            quizData.questions.push({
+                id,
+                text: 'New Question',
+                options: [
+                    { id: id + 'o1', text: 'Option 1', next: '' },
+                    { id: id + 'o2', text: 'Option 2', next: '' }
+                ]
+            });
+            renderQuestions();
+            saveToStorage();
+        }
+
+        function deleteQuestion(index) {
+            quizData.questions.splice(index, 1);
+            renderQuestions();
+            saveToStorage();
+        }
+
+        function updateQuestion(qi, field, value) {
+            quizData.questions[qi][field] = value;
+            renderQuestions();
+            saveToStorage();
+        }
+
+        function addOption(qi) {
+            const q = quizData.questions[qi];
+            q.options.push({
+                id: q.id + 'o' + (q.options.length + 1) + '_' + Date.now(),
+                text: 'New Option',
+                next: ''
+            });
+            renderQuestions();
+            saveToStorage();
+        }
+
+        function deleteOption(qi, oi) {
+            quizData.questions[qi].options.splice(oi, 1);
+            renderQuestions();
+            saveToStorage();
+        }
+
+        function updateOption(qi, oi, field, value) {
+            quizData.questions[qi].options[oi][field] = value;
+            saveToStorage();
+        }
+
+        function addResult() {
+            const id = 'r' + (quizData.results.length + 1) + '_' + Date.now();
+            quizData.results.push({
+                id,
+                title: 'New Result',
+                description: 'Description of this result.',
+                ctaText: 'Learn More',
+                ctaUrl: '#'
+            });
+            renderResults();
+            renderQuestions(); // Update next options
+            saveToStorage();
+        }
+
+        function deleteResult(index) {
+            quizData.results.splice(index, 1);
+            renderResults();
+            renderQuestions();
+            saveToStorage();
+        }
+
+        function updateResult(ri, field, value) {
+            quizData.results[ri][field] = value;
+            if (field === 'title') {
+                renderResults();
+                renderQuestions();
+            }
+            saveToStorage();
+        }
+
+        function updateColorPreview() {
+            const preview = document.getElementById('colorPreview');
+            const c = quizData.colors;
+            preview.style.background = c.background;
+            preview.style.color = c.text;
+            preview.querySelectorAll('.quiz-option').forEach(opt => {
+                opt.style.background = c.button;
+                opt.style.color = c.buttonText;
+            });
+        }
+
+        function renderQuizPreview() {
+            const container = document.getElementById('quizPreviewContainer');
+            const c = quizData.colors;
+            container.style.background = c.background;
+            container.style.color = c.text;
+
+            if (previewState.screen === 'intro') {
+                container.innerHTML = `
+                    <div class="quiz-title">${escapeHtml(quizData.title)}</div>
+                    <div class="quiz-description">${escapeHtml(quizData.description)}</div>
+                    <button class="quiz-option" style="background: ${c.button}; color: ${c.buttonText};" onclick="startPreviewQuiz()">${escapeHtml(quizData.startButton)}</button>
+                `;
+            } else if (previewState.screen === 'question') {
+                const q = quizData.questions[previewState.currentQuestion];
+                if (!q) {
+                    previewState.screen = 'intro';
+                    renderQuizPreview();
+                    return;
+                }
+                const progress = ((previewState.currentQuestion) / quizData.questions.length) * 100;
+                container.innerHTML = `
+                    <div class="quiz-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progress}%; background: ${c.progress};"></div>
+                        </div>
+                        <div class="progress-text">Question ${previewState.currentQuestion + 1} of ${quizData.questions.length}</div>
+                    </div>
+                    <div class="quiz-title" style="font-size: 1.25rem;">${escapeHtml(q.text)}</div>
+                    <div class="quiz-options">
+                        ${q.options.map((o, i) => `
+                            <div class="quiz-option" style="background: ${c.button}; color: ${c.buttonText};" onclick="selectPreviewOption('${o.next}')">${escapeHtml(o.text)}</div>
+                        `).join('')}
+                    </div>
+                `;
+            } else if (previewState.screen === 'result') {
+                const r = quizData.results.find(res => res.id === previewState.resultId);
+                if (!r) {
+                    container.innerHTML = '<div class="quiz-title">Result not found</div>';
+                    return;
+                }
+                container.innerHTML = `
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
+                    <div class="quiz-title">${escapeHtml(r.title)}</div>
+                    <div class="quiz-description">${escapeHtml(r.description)}</div>
+                    <a href="${escapeHtml(r.ctaUrl)}" target="_blank" class="quiz-option" style="background: ${c.accent}; color: #fff; display: inline-block; text-decoration: none; padding: 1rem 2rem;">${escapeHtml(r.ctaText)}</a>
+                `;
+            }
+        }
+
+        function startPreviewQuiz() {
+            previewState = { screen: 'question', currentQuestion: 0, answers: [] };
+            renderQuizPreview();
+        }
+
+        function selectPreviewOption(next) {
+            if (next.startsWith('r')) {
+                previewState.screen = 'result';
+                previewState.resultId = next;
+            } else {
+                const nextIndex = quizData.questions.findIndex(q => q.id === next);
+                if (nextIndex >= 0) {
+                    previewState.currentQuestion = nextIndex;
+                } else {
+                    previewState.currentQuestion++;
+                    if (previewState.currentQuestion >= quizData.questions.length) {
+                        previewState.screen = 'result';
+                        previewState.resultId = quizData.results[0]?.id;
+                    }
+                }
+            }
+            renderQuizPreview();
+        }
+
+        function resetPreview() {
+            previewState = { screen: 'intro', currentQuestion: 0, answers: [] };
+            renderQuizPreview();
+        }
+
+        function generateExportCode() {
+            const c = quizData.colors;
+            const code = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(quizData.title)}</title>
+    <style>
+        .quiz-container { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 2rem; border-radius: 1rem; text-align: center; background: ${c.background}; color: ${c.text}; }
+        .quiz-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .quiz-description { margin-bottom: 1.5rem; opacity: 0.9; }
+        .quiz-options { display: flex; flex-direction: column; gap: 0.75rem; }
+        .quiz-option { padding: 1rem; border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; font-weight: 500; border: none; background: ${c.button}; color: ${c.buttonText}; font-size: 1rem; }
+        .quiz-option:hover { transform: translateY(-2px); opacity: 0.9; }
+        .quiz-cta { background: ${c.accent}; color: #fff; text-decoration: none; display: inline-block; padding: 1rem 2rem; border-radius: 0.5rem; font-weight: 600; }
+        .quiz-cta:hover { opacity: 0.9; }
+        .progress-bar { height: 6px; background: rgba(255,255,255,0.3); border-radius: 3px; overflow: hidden; margin-bottom: 0.5rem; }
+        .progress-fill { height: 100%; background: ${c.progress}; transition: width 0.3s; }
+        .progress-text { font-size: 0.75rem; opacity: 0.8; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="quiz-container" id="quiz"></div>
+    <script>
+        const quizData = ${JSON.stringify({ title: quizData.title, description: quizData.description, startButton: quizData.startButton, questions: quizData.questions, results: quizData.results }, null, 2)};
+        let state = { screen: 'intro', qIndex: 0 };
+        
+        function render() {
+            const el = document.getElementById('quiz');
+            if (state.screen === 'intro') {
+                el.innerHTML = '<div class="quiz-title">' + quizData.title + '</div><div class="quiz-description">' + quizData.description + '</div><button class="quiz-option" onclick="start()">' + quizData.startButton + '</button>';
+            } else if (state.screen === 'question') {
+                const q = quizData.questions[state.qIndex];
+                const progress = (state.qIndex / quizData.questions.length) * 100;
+                el.innerHTML = '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div><div class="progress-text">Question ' + (state.qIndex + 1) + ' of ' + quizData.questions.length + '</div><div class="quiz-title" style="font-size:1.25rem">' + q.text + '</div><div class="quiz-options">' + q.options.map(function(o) { return '<button class="quiz-option" onclick="select(\\'' + o.next + '\\')">' + o.text + '</button>'; }).join('') + '</div>';
+            } else if (state.screen === 'result') {
+                const r = quizData.results.find(function(x) { return x.id === state.resultId; });
+                el.innerHTML = '<div style="font-size:3rem;margin-bottom:1rem">🎉</div><div class="quiz-title">' + r.title + '</div><div class="quiz-description">' + r.description + '</div><a href="' + r.ctaUrl + '" class="quiz-cta" target="_blank">' + r.ctaText + '</a>';
+            }
+        }
+        
+        function start() { state = { screen: 'question', qIndex: 0 }; render(); }
+        
+        function select(next) {
+            if (next.startsWith('r')) { state.screen = 'result'; state.resultId = next; }
+            else {
+                const idx = quizData.questions.findIndex(function(q) { return q.id === next; });
+                if (idx >= 0) state.qIndex = idx;
+                else { state.qIndex++; if (state.qIndex >= quizData.questions.length) { state.screen = 'result'; state.resultId = quizData.results[0].id; } }
+            }
+            render();
+        }
+        
+        render();
+    <\/script>
+</body>
+</html>`;
+            document.getElementById('exportCode').textContent = code;
+        }
+
+        function copyCode() {
+            const code = document.getElementById('exportCode').textContent;
+            navigator.clipboard.writeText(code).then(() => showToast('Code copied to clipboard!'));
+        }
+
+        function downloadCode() {
+            const code = document.getElementById('exportCode').textContent;
+            const blob = new Blob([code], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'quiz.html';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('File downloaded!');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function saveToStorage() {
+            localStorage.setItem('quizBuilderData', JSON.stringify(quizData));
+        }
+
+        function loadFromStorage() {
+            const saved = localStorage.getItem('quizBuilderData');
+            if (saved) {
+                try {
+                    quizData = JSON.parse(saved);
+                } catch (e) {}
+            }
+        }
+    </script>
 </body>
 </html>
