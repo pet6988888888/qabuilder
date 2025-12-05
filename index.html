@@ -1,1261 +1,800 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ChevronRight, Settings, Play, Plus, X, Trash2, Save, Send, Code, Clipboard, Palette } from 'lucide-react';
-
-
-// Debounce utility to limit write frequency
-const useDebounce = (callback, delay) => {
-   const handler = React.useRef(null);
-   return useCallback((...args) => {
-       if (handler.current) {
-           clearTimeout(handler.current);
-       }
-       handler.current = setTimeout(() => {
-           callback(...args);
-       }, delay);
-   }, [callback, delay]);
-};
-
-
-// Initial Data Structure
-const INITIAL_COLORS = {
-    bgColor: '#1F2937',
-    textColor: '#F3F4F6',
-    primaryColor: '#4F46E5',
-    primaryHover: '#4338CA',
-    accentColor: '#10B981',
-};
-
-
-const INITIAL_QUIZ_DATA = {
-   title: "Untitled Transformation Quiz",
-   description: "Discover your personalized plan by answering a few quick questions.", // Existing field
-   logoUrl: "", // New field for logo
-   startId: "q1",
-   colors: INITIAL_COLORS,
-   questions: {
-       "q1": {
-           text: "What is your current fitness level?",
-           options: [
-               { id: "o1", text: "Beginner", next: "q2" },
-               { id: "o2", text: "Intermediate", next: "q2" },
-               { id: "o3", text: "Advanced", next: "r_pro" }
-           ]
-       },
-       "q2": {
-           text: "How many hours a week can you dedicate to training?",
-           options: [
-               { id: "o4", text: "1-3 hours (Casual)", next: "r_low_effort" },
-               { id: "o5", text: "4-6 hours (Moderate)", next: "r_medium" }
-           ]
-       }
-   },
-   results: {
-       "r_low_effort": {
-           title: "Your Sustainable Plan",
-           content: "Focus on consistency and diet first. We recommend two 30-minute sessions per week.",
-           buttonText: "Get My Quick Start Guide",
-           buttonUrl: "https://example.com/quick-start"
-       },
-       "r_medium": {
-           title: "Your Intermediate Plan",
-           content: "You are ready for a 4-day split routine focusing on progressive overload.",
-           buttonText: "See Intermediate Products",
-           buttonUrl: "https://example.com/products/intermediate"
-       },
-       "r_pro": {
-           title: "Your Advanced Optimization Plan",
-           content: "We will refine your current routine with periodization and specific recovery techniques.",
-           buttonText: "Book a Consultation",
-           buttonUrl: "https://example.com/consultation"
-       }
-   }
-};
-
-
-// Action Button Component
-const ActionButton = ({ onClick, children, className = "", icon: Icon, style, onMouseEnter, onMouseLeave }) => (
-   <button
-       onClick={onClick}
-       className={`flex items-center justify-center p-3 text-sm font-semibold rounded-lg shadow-md transition-all duration-200 hover:shadow-lg active:scale-[0.98] ${className}`}
-       style={style}
-       onMouseEnter={onMouseEnter}
-       onMouseLeave={onMouseLeave}
-   >
-       {Icon && <Icon className="w-5 h-5 mr-2" />}
-       {children}
-   </button>
-);
-
-
-// Color Picker Component
-const ColorPicker = ({ label, value, onChange }) => (
-    <div className="flex flex-col space-y-1">
-        <label className="text-sm font-medium text-gray-300">{label}</label>
-        <div className="flex items-center space-x-2">
-            <input
-                type="color"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="w-8 h-8 rounded-full border-none cursor-pointer p-0 overflow-hidden"
-                style={{ backgroundColor: value, outline: 'none' }}
-            />
-            <input
-                type="text"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="flex-1 p-2 border border-gray-600 bg-gray-900 text-gray-100 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="#RRGGBB"
-            />
-        </div>
-    </div>
-);
-
-
-// Quiz Player Component
-const QuizPlayer = ({ quizData, onReset, availableNodes }) => {
-   const [currentId, setCurrentId] = useState(quizData.startId);
-   const [answers, setAnswers] = useState([]);
-   const [quizState, setQuizState] = useState('intro'); // 'intro', 'quiz', 'result'
-   const [userName, setUserName] = useState('');
-
-
-   const { bgColor, textColor, primaryColor, accentColor, primaryHover } = quizData.colors;
-
-
-   const currentNode = useMemo(() => {
-       if (quizState === 'intro' || !quizData || !quizData.questions || !quizData.results) return null;
-       if (currentId.startsWith('q')) {
-           return quizData.questions[currentId];
-       } else if (currentId.startsWith('r')) {
-           return quizData.results[currentId];
-       }
-       return null;
-   }, [currentId, quizData, quizState]);
-
-
-   const isResultNode = currentId.startsWith('r');
-
-
-   const handleStartQuiz = () => {
-       setQuizState('quiz');
-   };
-
-
-   const handleAnswer = (option) => {
-       if (isResultNode) return;
-       setAnswers(prev => [...prev, { qId: currentId, optionId: option.id }]);
-       setCurrentId(option.next);
-
-
-       // Check if the next node is a result node (r*) and set the state
-       if (option.next.startsWith('r')) {
-           setQuizState('result');
-       }
-   };
-
-
-   const handleReset = () => {
-       setCurrentId(quizData.startId);
-       setAnswers([]);
-       setUserName('');
-       setQuizState('intro');
-       onReset();
-   };
-
-
-   // ---------------- INTRO SCREEN ----------------
-   if (quizState === 'intro') {
-       return (
-           <div className="p-8 border rounded-xl shadow-2xl max-w-lg mx-auto" style={{ backgroundColor: bgColor, borderColor: primaryColor }}>
-               {quizData.logoUrl && (
-                   <img
-                       src={quizData.logoUrl}
-                       alt="Quiz Logo"
-                       className="w-24 h-24 object-contain mx-auto mb-6 rounded-lg shadow-md"
-                       onError={(e) => {
-                           e.currentTarget.style.display='none';
-                           console.error("Failed to load logo image.");
-                       }}
-                   />
-               )}
-               <h2 className="text-3xl font-extrabold mb-3 text-center" style={{ color: primaryColor }}>{quizData.title}</h2>
-               <p className="mb-6 text-center text-lg" style={{ color: textColor }}>{quizData.description}</p>
-               
-               <div className="mt-6">
-                   <label className="block text-lg font-semibold mb-2" style={{ color: accentColor }}>Your Name (Optional but encouraged):</label>
-                   <input
-                       type="text"
-                       value={userName}
-                       onChange={(e) => setUserName(e.target.value)}
-                       placeholder="Enter your name"
-                       className="w-full p-3 mb-6 border border-gray-600 bg-gray-900 text-gray-100 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                   />
-               </div>
-
-
-               <ActionButton
-                   onClick={handleStartQuiz}
-                   className="w-full text-white text-lg"
-                   style={{ backgroundColor: accentColor }}
-                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = primaryHover}
-                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = accentColor}
-                   icon={Play}
-               >
-                   Start Quiz
-               </ActionButton>
-           </div>
-       );
-   }
-
-
-   // ---------------- ERROR STATE ----------------
-   if (!currentNode) {
-       return (
-           <div className="p-8 text-center bg-gray-800 text-gray-100 rounded-xl shadow-2xl">
-               <h2 className="text-2xl font-bold text-red-400 mb-4">Quiz Error</h2>
-               <p className="text-gray-400 mb-6">The quiz structure is incomplete or the current step is missing. Please return to Builder Mode.</p>
-               <ActionButton onClick={handleReset} className="bg-red-500 text-white hover:bg-red-600">
-                   Back to Builder
-               </ActionButton>
-           </div>
-       );
-   }
-
-
-
-
-   // ---------------- RESULT SCREEN ----------------
-   if (quizState === 'result' || isResultNode) {
-       return (
-           <div className="p-8 border rounded-xl shadow-2xl max-w-lg mx-auto transform transition-all duration-500" style={{ backgroundColor: bgColor, borderColor: accentColor }}>
-               {userName && <h3 className="text-xl font-bold mb-4" style={{ color: primaryColor }}>Hello, {userName}!</h3>}
-
-
-               <h2 className="text-3xl font-extrabold mb-4 border-b pb-2" style={{ color: accentColor, borderColor: accentColor }}>{currentNode.title}</h2>
-               <p className="whitespace-pre-wrap mb-8" style={{ color: textColor }}>{currentNode.content}</p>
-               
-               <h3 className="text-lg font-semibold mb-3" style={{ color: accentColor }}>Your Journey:</h3>
-               <ul className="list-disc list-inside text-sm space-y-1 pl-4" style={{ color: textColor }}>
-                   {answers.map((ans, index) => {
-                       const question = quizData.questions[ans.qId];
-                       const option = question?.options.find(opt => opt.id === ans.optionId);
-                       return (
-                           <li key={index} className="pl-1">
-                               <span className="font-medium" style={{ color: textColor }}>{question?.text || 'Unknown Question'}</span>: {option?.text || 'Unknown Answer'}
-                           </li>
-                       );
-                   })}
-               </ul>
-               
-               {currentNode.buttonUrl && currentNode.buttonText && (
-                   <div className="mt-8">
-                       <a
-                           href={currentNode.buttonUrl}
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           className="flex items-center justify-center p-4 text-lg font-bold rounded-lg shadow-xl transition-all duration-300 w-full"
-                           style={{ backgroundColor: accentColor, color: textColor }}
-                       >
-                           <ChevronRight className="w-6 h-6 mr-2" />
-                           {currentNode.buttonText}
-                       </a>
-                   </div>
-               )}
-               
-               <div className="mt-8 text-center">
-                   <ActionButton
-                       onClick={handleReset}
-                       className="text-white"
-                       style={{ backgroundColor: primaryColor }}
-                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = primaryHover}
-                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = primaryColor}
-                   >
-                       Start New Quiz
-                   </ActionButton>
-               </div>
-           </div>
-       );
-   }
-   
-   // ---------------- QUESTION SCREEN ----------------
-   return (
-       <div className="p-6 border rounded-xl shadow-2xl max-w-md mx-auto transform transition-all duration-300" style={{ backgroundColor: bgColor, borderColor: primaryColor }}>
-           <h2 className="text-xl md:text-2xl font-bold mb-6 min-h-[40px]" style={{ color: textColor }}>{currentNode.text}</h2>
-           <div className="space-y-3">
-               {currentNode.options.map((option) => (
-                   <button
-                       key={option.id}
-                       onClick={() => handleAnswer(option)}
-                       className="flex items-center justify-center w-full p-3 text-sm font-semibold rounded-lg shadow-md transition-all duration-200 hover:shadow-lg active:scale-[0.98] text-white"
-                       style={{ backgroundColor: primaryColor }}
-                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = primaryHover}
-                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = primaryColor}
-                   >
-                       <ChevronRight className="w-5 h-5 mr-2" />
-                       {option.text}
-                       <span className="ml-auto text-xs font-normal opacity-70">
-                           {availableNodes[option.next]?.type === 'result' ? ' (Result)' : ' (Next Q)'}
-                       </span>
-                   </button>
-               ))}
-           </div>
-       </div>
-   );
-};
-
-
-// Customization Panel Component
-const CustomizationPanel = ({ quizData, setQuizData }) => {
-    const handleColorChange = (key, value) => {
-        setQuizData(prev => ({
-            ...prev,
-            colors: {
-                ...prev.colors,
-                [key]: value
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookbook Cover Creator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load html2canvas for image export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Custom Font Configuration for Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        // 15 Total Custom fonts for variety
+                        'inter': ['Inter', 'sans-serif'],
+                        'serif': ['Playfair Display', 'serif'],
+                        'mono': ['Space Mono', 'monospace'],
+                        'oswald': ['Oswald', 'sans-serif'],
+                        'pacifico': ['Pacifico', 'cursive'],
+                        'slab': ['Roboto Slab', 'serif'],
+                        'lobster': ['Lobster', 'cursive'],
+                        'lora': ['Lora', 'serif'],
+                        'montserrat': ['Montserrat', 'sans-serif'],
+                        'fjalla': ['Fjalla One', 'sans-serif'],
+                        'marker': ['Permanent Marker', 'cursive'],
+                        'bebas': ['Bebas Neue', 'sans-serif'],
+                        'dancing': ['Dancing Script', 'cursive'],
+                        'righteous': ['Righteous', 'cursive'],
+                        'vollkorn': ['Vollkorn', 'serif'],
+                    },
+                    colors: {
+                        'primary-bg': '#333333',
+                        'secondary-bg': '#4CAF50', // Default green from the example
+                    }
+                }
             }
-        }));
-    };
+        }
+    </script>
+    <style>
+        /* UPDATED: Imported all 15 font families */
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Dancing+Script:wght@400;700&family=Fjalla+One:wght@400;700&family=Inter:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Montserrat:wght@700&family=Oswald:wght@700&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:wght@700&family=Righteous&family=Roboto+Slab:wght@700&family=Space+Mono&family=Vollkorn:wght@700&display=swap');
+        
+        /* Ensures the thumb of the range input is styled */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #4A4A4A;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .control-group {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            background-color: #3f3f46; /* Tailwind gray-700 */
+        }
+        
+        /* Style for temporary error message */
+        .error-message {
+            z-index: 1000;
+            animation: fadeInOut 5s forwards;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* FIX: Cover preview responsive sizing */
+        #cover-preview-container {
+            max-height: calc(100vh - 6rem);
+            width: auto;
+            height: auto;
+        }
+
+        /* Ensure the preview wrapper centers and constrains properly */
+        .preview-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 1rem;
+        }
+
+        /* @media print for browser printing consistency */
+        @media print {
+            /* Hide controls and general page elements */
+            #controls {
+                display: none !important;
+            }
+
+            /* Ensure the cover preview container takes up the page and centers */
+            .max-w-6xl {
+                max-width: 100% !important;
+                display: block !important;
+            }
+            .lg\:col-span-2 {
+                width: 100% !important;
+                flex: 1 1 100% !important;
+                display: block !important;
+            }
+            .gap-8 {
+                gap: 0 !important;
+            }
+
+            /* The cover element itself must scale correctly */
+            #cover-preview-container {
+                max-width: 100% !important; 
+                width: 100% !important;
+                margin: 0 auto; 
+                /* Remove box shadows for clean print */
+                box-shadow: none !important;
+            }
+            
+            /* Crucial: Ensure the image maintains aspect ratio on print */
+            #cover-image {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                object-position: center;
+                display: block;
+            }
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const controls = {
+                // Content
+                subHeadlineInput: document.getElementById('sub-headline-input'), 
+                headlineInput: document.getElementById('headline-input'),
+                sloganInput: document.getElementById('slogan-input'),
+                imageFileInput: document.getElementById('image-file-input'), 
+                
+                // Logo
+                logoFileInput: document.getElementById('logo-file-input'), 
+                logoSize: document.getElementById('logo-size'),
+                
+                // Layout
+                imagePosition: document.getElementById('image-position'),
+
+                // Background/Gradient
+                bgColor: document.getElementById('bg-color'), 
+                bgColor2: document.getElementById('bg-color-2'), 
+                gradientDirection: document.getElementById('gradient-direction'), 
+                
+                // Image Effects
+                overlayColor: document.getElementById('overlay-color'),
+                overlayOpacity: document.getElementById('overlay-opacity'),
+                grayscaleToggle: document.getElementById('grayscale-toggle'),
+
+                // Divider Controls
+                dividerColor: document.getElementById('divider-color'),
+                dividerThickness: document.getElementById('divider-thickness'),
+                
+                // Border Controls (NEW)
+                borderToggle: document.getElementById('border-toggle'),
+                borderColor: document.getElementById('border-color'),
+                borderWidth: document.getElementById('border-width'),
+                
+                // Sub-Headline Styles (Updated with Position)
+                subHeadlinePosition: document.getElementById('sub-headline-position'), // NEW
+                subHeadlineColor: document.getElementById('sub-headline-color'),
+                subHeadlineFont: document.getElementById('sub-headline-font'),
+                subHeadlineSize: document.getElementById('sub-headline-size'),
+
+                // Headline Styles
+                headlineColor: document.getElementById('headline-color'),
+                headlineFont: document.getElementById('headline-font'),
+                headlineSize: document.getElementById('headline-size'),
+                
+                // Slogan Styles
+                sloganColor: document.getElementById('slogan-color'),
+                sloganFont: document.getElementById('slogan-font'),
+                sloganSize: document.getElementById('slogan-size'),
+            };
+
+            const previewElements = {
+                coverPreviewContainer: document.getElementById('cover-preview-container'),
+                coverPreview: document.getElementById('cover-preview'),
+                imageSection: document.getElementById('image-section'),
+                coverImage: document.getElementById('cover-image'),
+                // Image Overlay
+                imageOverlay: document.getElementById('image-overlay'),
+                textSection: document.getElementById('text-section'),
+                
+                // Divider Element
+                dividerLine: document.getElementById('divider-line'), 
+                
+                // Text Elements
+                logoImage: document.getElementById('logo-image'), 
+                subHeadlineText: document.getElementById('sub-headline-text'), 
+                headline: document.getElementById('headline'),
+                slogan: document.getElementById('slogan'),
+
+                // Displays
+                headlineSizeDisplay: document.getElementById('headline-size-display'),
+                sloganSizeDisplay: document.getElementById('slogan-size-display'),
+                subHeadlineSizeDisplay: document.getElementById('sub-headline-size-display'),
+                dividerThicknessDisplay: document.getElementById('divider-thickness-display'), 
+                logoSizeDisplay: document.getElementById('logo-size-display'),
+                overlayOpacityDisplay: document.getElementById('overlay-opacity-display'),
+                borderWidthDisplay: document.getElementById('border-width-display'),
+                downloadPngBtn: document.getElementById('download-png-btn'),
+                downloadJpgBtn: document.getElementById('download-jpg-btn'),
+            };
+
+            const fontMap = {
+                'inter': 'Inter, sans-serif',
+                'serif': 'Playfair Display, serif',
+                'mono': 'Space Mono, monospace',
+                'oswald': 'Oswald, sans-serif',
+                'pacifico': 'Pacifico, cursive',
+                'slab': 'Roboto Slab, serif',
+                'lobster': 'Lobster, cursive',
+                'lora': 'Lora, serif',
+                'montserrat': 'Montserrat, sans-serif',
+                'fjalla': 'Fjalla One, sans-serif',
+                'marker': 'Permanent Marker, cursive',
+                'bebas': 'Bebas Neue, sans-serif',
+                'dancing': 'Dancing Script, cursive',
+                'righteous': 'Righteous, cursive',
+                'vollkorn': 'Vollkorn, serif',
+            };
+
+            const hexToRgba = (hex, alpha) => {
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            };
+            
+            // Store original image data for proper export
+            let originalImageData = null;
+            
+            /**
+             * Updates the cover design based on current control values.
+             */
+            function updateCover() {
+                const position = controls.imagePosition.value;
+
+                // 1. Layout Control: Set Order and Ratio
+                previewElements.coverPreview.classList.remove('flex-col', 'flex-col-reverse');
+                if (position.includes('bottom')) {
+                    previewElements.coverPreview.classList.add('flex-col-reverse');
+                } else {
+                    previewElements.coverPreview.classList.add('flex-col');
+                }
+
+                if (position.includes('2-3')) {
+                    previewElements.imageSection.style.flexGrow = '2';
+                    previewElements.textSection.style.flexGrow = '1';
+                } else {
+                    previewElements.imageSection.style.flexGrow = '1';
+                    previewElements.textSection.style.flexGrow = '1';
+                }
+
+                // 2. Text Section Background (Gradient UPDATED)
+                const color1 = controls.bgColor.value;
+                const color2 = controls.bgColor2.value;
+                const direction = controls.gradientDirection.value;
+
+                if (direction === 'solid') {
+                    previewElements.textSection.style.backgroundImage = 'none';
+                    previewElements.textSection.style.backgroundColor = color1;
+                } else {
+                    previewElements.textSection.style.backgroundImage = `linear-gradient(${direction}, ${color1}, ${color2})`;
+                    previewElements.textSection.style.backgroundColor = color1; // Fallback
+                }
 
 
-    return (
-        <div className="p-8 bg-gray-800 rounded-xl shadow-2xl border border-gray-700">
-            <h3 className="text-2xl font-bold text-indigo-400 mb-6 border-b pb-2 border-gray-700 flex items-center">
-                <Palette className="w-6 h-6 mr-3" />
-                Customize Quiz Colors
-            </h3>
-            <p className="text-gray-400 mb-6">These colors will be used in the live Player Mode and in the exported HTML code.</p>
-           
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <ColorPicker
-                    label="Card Background Color (bgColor)"
-                    value={quizData.colors.bgColor}
-                    onChange={(v) => handleColorChange('bgColor', v)}
-                />
-                <ColorPicker
-                    label="Text Color (textColor)"
-                    value={quizData.colors.textColor}
-                    onChange={(v) => handleColorChange('textColor', v)}
-                />
-                <ColorPicker
-                    label="Primary Button Color (primaryColor)"
-                    value={quizData.colors.primaryColor}
-                    onChange={(v) => handleColorChange('primaryColor', v)}
-                />
-                <ColorPicker
-                    label="Button Hover Color (primaryHover)"
-                    value={quizData.colors.primaryHover}
-                    onChange={(v) => handleColorChange('primaryHover', v)}
-                />
-                <ColorPicker
-                    label="Accent/CTA Color (accentColor)"
-                    value={quizData.colors.accentColor}
-                    onChange={(v) => handleColorChange('accentColor', v)}
-                />
+                // 3. Divider Line Updates
+                const thickness = controls.dividerThickness.value;
+                previewElements.dividerLine.style.backgroundColor = controls.dividerColor.value;
+                previewElements.dividerLine.style.height = `${thickness}px`;
+                previewElements.dividerThicknessDisplay.textContent = `${thickness}px (Set to 0 to hide)`;
+
+                // 4. Logo Updates
+                const logoHeight = controls.logoSize.value;
+                previewElements.logoImage.style.maxHeight = `${logoHeight}px`;
+                previewElements.logoSizeDisplay.textContent = `${logoHeight}px (Set to 0 to hide logo)`;
+                
+                if (parseInt(logoHeight) > 0) {
+                    previewElements.logoImage.classList.remove('hidden');
+                } else {
+                    previewElements.logoImage.classList.add('hidden');
+                }
+                
+                // 5. Image Effects (NEW)
+                const opacity = controls.overlayOpacity.value / 100;
+                const overlayColor = controls.overlayColor.value;
+                const grayscale = controls.grayscaleToggle.checked;
+                
+                // Grayscale Filter on Image
+                previewElements.coverImage.style.filter = grayscale ? 'grayscale(100%)' : 'none';
+                
+                // Color Overlay on separate div
+                previewElements.imageOverlay.style.backgroundColor = hexToRgba(overlayColor, opacity);
+                previewElements.overlayOpacityDisplay.textContent = `${controls.overlayOpacity.value}%`;
+
+                // 6. Sub-Headline Updates (NEW: Position and Styles)
+                previewElements.subHeadlineText.textContent = controls.subHeadlineInput.value;
+                previewElements.subHeadlineText.style.color = controls.subHeadlineColor.value;
+                previewElements.subHeadlineText.style.fontFamily = fontMap[controls.subHeadlineFont.value];
+                previewElements.subHeadlineText.style.fontSize = `${controls.subHeadlineSize.value}px`;
+                previewElements.subHeadlineSizeDisplay.textContent = `${controls.subHeadlineSize.value}px`;
+                
+                // Position logic: Apply order-last to move it below slogan
+                const subHeadlinePosition = controls.subHeadlinePosition.value;
+                previewElements.subHeadlineText.classList.remove('order-last'); 
+                if (subHeadlinePosition === 'bottom') {
+                    previewElements.subHeadlineText.classList.add('order-last');
+                }
+
+                // 7. Headline Updates
+                previewElements.headline.textContent = controls.headlineInput.value;
+                previewElements.headline.style.color = controls.headlineColor.value;
+                previewElements.headline.style.fontFamily = fontMap[controls.headlineFont.value];
+                previewElements.headline.style.fontSize = `${controls.headlineSize.value}px`;
+                previewElements.headlineSizeDisplay.textContent = `${controls.headlineSize.value}px`;
+                
+                // 8. Slogan Updates
+                previewElements.slogan.textContent = controls.sloganInput.value;
+                previewElements.slogan.style.color = controls.sloganColor.value;
+                previewElements.slogan.style.fontFamily = fontMap[controls.sloganFont.value];
+                previewElements.slogan.style.fontSize = `${controls.sloganSize.value}px`;
+                previewElements.sloganSizeDisplay.textContent = `${controls.sloganSize.value}px`;
+                
+                // 9. Border Updates (NEW)
+                const borderEnabled = controls.borderToggle.checked;
+                const borderColor = controls.borderColor.value;
+                const borderWidth = controls.borderWidth.value;
+                
+                if (borderEnabled) {
+                    previewElements.coverPreviewContainer.style.border = `${borderWidth}px solid ${borderColor}`;
+                } else {
+                    previewElements.coverPreviewContainer.style.border = 'none';
+                }
+                previewElements.borderWidthDisplay.textContent = `${borderWidth}px`;
+            }
+
+            /**
+             * Converts the cover preview element into a high-resolution file (PNG or JPEG) and triggers download.
+             * FIX: Properly maintains aspect ratio by using background-image approach during capture.
+             */
+            async function generateAndDownload(format) {
+                const elementToCapture = previewElements.coverPreviewContainer;
+                const targetWidthPx = 2480; 
+                // Calculate height based on the actual element's aspect ratio to prevent distortion
+                const aspectRatio = elementToCapture.offsetHeight / elementToCapture.offsetWidth;
+                const targetHeightPx = Math.round(targetWidthPx * aspectRatio);
+
+                const scale = targetWidthPx / elementToCapture.offsetWidth;
+                
+                const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+                const quality = format === 'jpg' ? 0.95 : 1.0; 
+                const filename = `cookbook_cover.${format}`;
+
+                // FIX: Store original image styles and temporarily modify for capture
+                const imageElement = previewElements.coverImage;
+                const imageSectionElement = previewElements.imageSection;
+                
+                // Store original styles
+                const originalImageStyle = imageElement.getAttribute('style') || '';
+                const originalSectionStyle = imageSectionElement.getAttribute('style') || '';
+                const originalImageClass = imageElement.className;
+                
+                // FIX: Get the EXACT computed dimensions BEFORE any changes
+                const sectionRect = imageSectionElement.getBoundingClientRect();
+                const sectionHeight = sectionRect.height;
+                const originalFlexGrow = imageSectionElement.style.flexGrow;
+                
+                // FIX: Convert the image to a background-image approach for proper capture
+                const imgSrc = imageElement.src;
+                const grayscale = controls.grayscaleToggle.checked;
+                
+                // FIX: Set explicit height on image section BEFORE hiding the image
+                // This prevents the flex container from collapsing
+                imageSectionElement.style.height = `${sectionHeight}px`;
+                imageSectionElement.style.flexGrow = '0';
+                imageSectionElement.style.flexShrink = '0';
+                
+                // Hide the img element and use background-image on the section
+                imageElement.style.display = 'none';
+                imageSectionElement.style.backgroundImage = `url('${imgSrc}')`;
+                imageSectionElement.style.backgroundSize = 'cover';
+                imageSectionElement.style.backgroundPosition = 'center';
+                imageSectionElement.style.backgroundRepeat = 'no-repeat';
+                if (grayscale) {
+                    imageSectionElement.style.filter = 'grayscale(100%)';
+                }
+
+                try {
+                    const canvas = await html2canvas(elementToCapture, {
+                        scale: scale,
+                        useCORS: true,
+                        allowTaint: true,
+                        logging: false,
+                        width: elementToCapture.offsetWidth,
+                        height: elementToCapture.offsetHeight,
+                    });
+                    
+                    // Use the canvas directly from html2canvas - it's already at the correct proportions
+                    const dataUrl = canvas.toDataURL(mimeType, quality);
+                    const link = document.createElement('a');
+                    link.download = filename;
+                    link.href = dataUrl;
+                    link.click();
+                } catch (error) {
+                    console.error('Error generating image:', error);
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'error-message fixed top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white p-4 rounded-lg shadow-xl';
+                    errorDiv.textContent = 'Error generating image. Please try again or use a different image.';
+                    document.body.appendChild(errorDiv);
+                    setTimeout(() => errorDiv.remove(), 5000); 
+                } finally {
+                    // FIX: Restore ALL original styles after capture
+                    imageElement.style.display = '';
+                    imageElement.setAttribute('style', originalImageStyle);
+                    imageElement.className = originalImageClass;
+                    
+                    // Remove the temporary styles
+                    imageSectionElement.style.height = '';
+                    imageSectionElement.style.flexShrink = '';
+                    imageSectionElement.style.backgroundImage = '';
+                    imageSectionElement.style.backgroundSize = '';
+                    imageSectionElement.style.backgroundPosition = '';
+                    imageSectionElement.style.backgroundRepeat = '';
+                    imageSectionElement.style.filter = '';
+                    
+                    // Restore flex-grow
+                    imageSectionElement.style.flexGrow = originalFlexGrow || '';
+                }
+            }
+
+
+            // --- Dedicated Image File Handler ---
+            controls.imageFileInput.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewElements.coverImage.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    previewElements.coverImage.src = "https://placehold.co/2480x3508/4CAF50/FFFFFF?text=Upload+Recipe+Image";
+                }
+            });
+
+            // --- Dedicated Logo File Handler ---
+            controls.logoFileInput.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewElements.logoImage.src = e.target.result;
+                        if (controls.logoSize.value === '0') {
+                            controls.logoSize.value = 50;
+                        }
+                        updateCover(); 
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    previewElements.logoImage.src = "https://placehold.co/100x40/000000/FFFFFF?text=LOGO";
+                    controls.logoSize.value = 0; // Hide logo if file is cleared
+                    updateCover(); 
+                }
+            });
+
+            // Attach event listeners for all controls
+            [
+                controls.headlineInput, controls.sloganInput, controls.subHeadlineInput, 
+                controls.imagePosition, 
+                controls.bgColor, controls.bgColor2, controls.gradientDirection, 
+                controls.dividerColor, controls.dividerThickness, 
+                controls.logoSize,
+                // New/Updated controls
+                controls.subHeadlinePosition, controls.subHeadlineColor, controls.subHeadlineFont, controls.subHeadlineSize, 
+                controls.headlineColor, controls.headlineFont, controls.headlineSize, 
+                controls.sloganColor, controls.sloganFont, controls.sloganSize,
+                controls.overlayColor, controls.overlayOpacity, controls.grayscaleToggle,
+                // Border controls (NEW)
+                controls.borderToggle, controls.borderColor, controls.borderWidth
+            ]
+            .forEach(control => {
+                control.addEventListener('input', updateCover);
+                control.addEventListener('change', updateCover); 
+            });
+
+            // Attach listeners for the download buttons
+            previewElements.downloadPngBtn.addEventListener('click', () => generateAndDownload('png'));
+            previewElements.downloadJpgBtn.addEventListener('click', () => generateAndDownload('jpg'));
+
+            // Initial call to set up the cover with default values
+            updateCover();
+        });
+    </script>
+</head>
+<body class="bg-primary-bg min-h-screen p-4 md:p-8 font-inter">
+
+    <!-- FIXED: Layout with proper height constraints -->
+    <div class="max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-4rem)]">
+        
+        <!-- Controls Panel - Scrollable on desktop -->
+        <div id="controls" class="lg:w-2/5 w-full p-6 bg-gray-800 rounded-xl shadow-2xl overflow-y-auto lg:h-full">
+            <h2 class="text-3xl font-bold text-white mb-6 border-b border-gray-700 pb-3">Cover Customization</h2>
+
+            <!-- Download Buttons -->
+            <div class="control-group p-0 rounded-lg">
+                <button id="download-png-btn" class="w-full p-3 text-white font-bold text-lg bg-green-700 rounded-t-lg hover:bg-green-600 transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50">
+                    Download PNG (A4)
+                </button>
+                <button id="download-jpg-btn" class="w-full p-3 text-white font-bold text-lg bg-yellow-600 rounded-b-lg hover:bg-yellow-500 transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-yellow-500 focus:ring-opacity-50">
+                    Download JPG (A4)
+                </button>
+            </div>
+            
+            <!-- Text & Content Controls (REORDERED FOR CLARITY) -->
+            <div class="control-group">
+                <h3 class="text-xl font-semibold text-white mb-3">Content</h3>
+                
+                <!-- MOVED TO TOP: Headline Text -->
+                <label for="headline-input" class="block text-sm font-medium text-gray-300 mb-1">Headline Text</label>
+                <input type="text" id="headline-input" value="MONTH TEN" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
+
+                <!-- MOVED TO SECOND: Sub-Headline Text -->
+                <label for="sub-headline-input" class="block text-sm font-medium text-gray-300 mb-1">Sub-Headline Text</label>
+                <input type="text" id="sub-headline-input" value="THE HEALTHY RECIPE COLLECTION" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
+                
+                <!-- REMAINS AT BOTTOM: Slogan / Description -->
+                <label for="slogan-input" class="block text-sm font-medium text-gray-300 mb-1">Slogan / Description</label>
+                <textarea id="slogan-input" rows="3" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">Discover 15 easy, healthy and tasty recipes, including: breakfast, lunch, dinner, treat and smoothies</textarea>
+                
+                <!-- Image File Input -->
+                <label for="image-file-input" class="block text-sm font-medium text-gray-300 mb-1 mt-4">Upload Main Recipe Image</label>
+                <input type="file" id="image-file-input" accept="image/*" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-secondary-bg file:text-white hover:file:bg-green-600">
+            </div>
+
+            <!-- Logo Controls -->
+            <div class="control-group">
+                <h3 class="text-xl font-semibold text-white mb-3">Logo (Above Headline)</h3>
+                
+                <!-- Logo Image File Input -->
+                <label for="logo-file-input" class="block text-sm font-medium text-gray-300 mb-1 mt-4">Upload Logo File</label>
+                <input type="file" id="logo-file-input" accept="image/*" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-secondary-bg file:text-white hover:file:bg-green-600">
+
+                <label for="logo-size" class="block text-sm font-medium text-gray-300 mb-1 mt-4">Logo Max Height (px)</label>
+                <input type="range" id="logo-size" min="0" max="100" value="50" class="range-input">
+                <span id="logo-size-display" class="text-xs text-gray-400">50px (Set to 0 to hide logo)</span>
+            </div>
+
+            <!-- Layout Controls -->
+            <div class="control-group">
+                <h3 class="text-xl font-semibold text-white mb-3">Layout</h3>
+                <label for="image-position" class="block text-sm font-medium text-gray-300 mb-2">Image Position</label>
+                <select id="image-position" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
+                    <option value="top">Image at Top (50/50 Split)</option>
+                    <option value="bottom">Image at Bottom (50/50 Split)</option>
+                    <option value="top-2-3">Image at Top (2/3 Size)</option>
+                    <option value="bottom-2-3">Image at Bottom (2/3 Size)</option>
+                </select>
+            </div>
+
+            <!-- Border Controls (NEW) -->
+            <div class="control-group">
+                <h3 class="text-xl font-semibold text-white mb-3">Border</h3>
+                
+                <div class="flex items-center mb-4">
+                    <input type="checkbox" id="border-toggle" class="h-4 w-4 text-secondary-bg rounded border-gray-500 focus:ring-secondary-bg">
+                    <label for="border-toggle" class="ml-2 block text-sm font-medium text-gray-300">Enable Border</label>
+                </div>
+                
+                <label for="border-color" class="block text-sm font-medium text-gray-300 mb-1">Border Color</label>
+                <input type="color" id="border-color" value="#FFFFFF" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
+                
+                <label for="border-width" class="block text-sm font-medium text-gray-300 mb-1">Border Width (px)</label>
+                <input type="range" id="border-width" min="1" max="20" value="5" class="range-input">
+                <span id="border-width-display" class="text-xs text-gray-400">5px</span>
+            </div>
+
+            <!-- Style Controls (UPDATED for Gradient) -->
+            <div class="control-group">
+                <h3 class="text-xl font-semibold text-white mb-3">Colors & Background (Gradient)</h3>
+
+                <label for="bg-color" class="block text-sm font-medium text-gray-300 mb-1">Text Section Color 1 (Primary)</label>
+                <input type="color" id="bg-color" value="#4CAF50" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
+
+                <label for="bg-color-2" class="block text-sm font-medium text-gray-300 mb-1">Text Section Color 2 (Gradient)</label>
+                <input type="color" id="bg-color-2" value="#2C7A7B" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
+                
+                <label for="gradient-direction" class="block text-sm font-medium text-gray-300 mb-1">Gradient Direction</label>
+                <select id="gradient-direction" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
+                    <option value="solid">Solid Color</option>
+                    <option value="to top">To Top</option>
+                    <option value="to bottom" selected>To Bottom</option>
+                    <option value="to right">To Right</option>
+                    <option value="to left">To Left</option>
+                </select>
+            </div>
+            
+            <!-- Image Effects (NEW) -->
+            <div class="control-group">
+                <h3 class="text-xl font-semibold text-white mb-3">Image Effects</h3>
+                
+                <label for="overlay-color" class="block text-sm font-medium text-gray-300 mb-1">Overlay Color</label>
+                <input type="color" id="overlay-color" value="#000000" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
+
+                <label for="overlay-opacity" class="block text-sm font-medium text-gray-300 mb-1">Overlay Opacity (%)</label>
+                <input type="range" id="overlay-opacity" min="0" max="100" value="0" class="range-input">
+                <span id="overlay-opacity-display" class="text-xs text-gray-400">0%</span>
+
+                <div class="flex items-center mt-4">
+                    <input type="checkbox" id="grayscale-toggle" class="h-4 w-4 text-secondary-bg rounded border-gray-500 focus:ring-secondary-bg">
+                    <label for="grayscale-toggle" class="ml-2 block text-sm font-medium text-gray-300">Apply Grayscale Filter</label>
+                </div>
+            </div>
+
+            <!-- Divider Line Styles -->
+            <div class="control-group">
+                <h3 class="text-xl font-semibold text-white mb-3">Divider Line Styles</h3>
+                
+                <label for="divider-color" class="block text-sm font-medium text-gray-300 mb-1">Line Color</label>
+                <input type="color" id="divider-color" value="#FFFFFF" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
+                
+                <label for="divider-thickness" class="block text-sm font-medium text-gray-300 mb-1">Thickness (px)</label>
+                <input type="range" id="divider-thickness" min="0" max="10" value="3" class="range-input">
+                <span id="divider-thickness-display" class="text-xs text-gray-400">3px (Set to 0 to hide)</span>
+            </div>
+
+            <!-- Sub-Headline Styles (NEW) -->
+            <div class="control-group">
+                <h3 class="text-xl font-semibold text-white mb-3">Sub-Headline Styles</h3>
+                
+                <!-- NEW CONTROL: Position -->
+                <label for="sub-headline-position" class="block text-sm font-medium text-gray-300 mb-1">Position</label>
+                <select id="sub-headline-position" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
+                    <option value="top">Above Headline (Default)</option>
+                    <option value="bottom">Below Slogan</option>
+                </select>
+                
+                <label for="sub-headline-color" class="block text-sm font-medium text-gray-300 mb-1">Color</label>
+                <input type="color" id="sub-headline-color" value="#FFFFFF" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
+
+                <label for="sub-headline-font" class="block text-sm font-medium text-gray-300 mb-1">Font Family</label>
+                <select id="sub-headline-font" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
+                    <option value="inter">Inter (Sans-Serif, Default)</option>
+                    <option value="serif">Playfair Display (Elegant Serif)</option>
+                    <option value="mono">Space Mono (Monospace)</option>
+                    <option value="oswald">Oswald (Condensed Sans)</option>
+                    <option value="pacifico">Pacifico (Fun Script)</option>
+                    <option value="slab">Roboto Slab (Slab Serif)</option>
+                    <option value="lobster">Lobster (Bold Script)</option>
+                    <option value="lora">Lora (Classic Serif)</option>
+                    <option value="montserrat">Montserrat (Geometric Sans)</option>
+                    <option value="fjalla">Fjalla One (Ultra Condensed)</option>
+                    <option value="marker">Permanent Marker (Handwritten)</option>
+                    <option value="bebas">Bebas Neue (All Caps Display)</option>
+                    <option value="dancing">Dancing Script (Flowing Script)</option>
+                    <option value="righteous">Righteous (Geometric Display)</option>
+                    <option value="vollkorn">Vollkorn (Strong Serif)</option>
+                </select>
+
+                <label for="sub-headline-size" class="block text-sm font-medium text-gray-300 mb-1">Size (px)</label>
+                <input type="range" id="sub-headline-size" min="10" max="25" value="14" class="range-input">
+                <span id="sub-headline-size-display" class="text-xs text-gray-400">14px</span>
+            </div>
+            
+            <div class="control-group">
+                <h3 class="text-xl font-semibold text-white mb-3">Headline Styles</h3>
+                
+                <label for="headline-color" class="block text-sm font-medium text-gray-300 mb-1">Color</label>
+                <input type="color" id="headline-color" value="#FFFFFF" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
+                
+                <label for="headline-font" class="block text-sm font-medium text-gray-300 mb-1">Font Family (15 Options)</label>
+                <select id="headline-font" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
+                    <option value="inter">Inter (Sans-Serif, Default)</option>
+                    <option value="serif">Playfair Display (Elegant Serif)</option>
+                    <option value="mono">Space Mono (Monospace)</option>
+                    <option value="oswald">Oswald (Condensed Sans)</option>
+                    <option value="pacifico">Pacifico (Fun Script)</option>
+                    <option value="slab">Roboto Slab (Slab Serif)</option>
+                    <option value="lobster">Lobster (Bold Script)</option>
+                    <option value="lora">Lora (Classic Serif)</option>
+                    <option value="montserrat">Montserrat (Geometric Sans)</option>
+                    <option value="fjalla">Fjalla One (Ultra Condensed)</option>
+                    <option value="marker">Permanent Marker (Handwritten)</option>
+                    <option value="bebas">Bebas Neue (All Caps Display)</option>
+                    <option value="dancing">Dancing Script (Flowing Script)</option>
+                    <option value="righteous">Righteous (Geometric Display)</option>
+                    <option value="vollkorn">Vollkorn (Strong Serif)</option>
+                </select>
+
+                <label for="headline-size" class="block text-sm font-medium text-gray-300 mb-1">Size (px)</label>
+                <input type="range" id="headline-size" min="30" max="100" value="64" class="range-input">
+                <span id="headline-size-display" class="text-xs text-gray-400">64px</span>
+            </div>
+
+            <div class="control-group">
+                <h3 class="text-xl font-semibold text-white mb-3">Slogan Styles</h3>
+                
+                <label for="slogan-color" class="block text-sm font-medium text-gray-300 mb-1">Color</label>
+                <input type="color" id="slogan-color" value="#FFFFFF" class="w-full h-10 mb-4 rounded-lg border-2 border-gray-600">
+                
+                <label for="slogan-font" class="block text-sm font-medium text-gray-300 mb-1">Font Family (15 Options)</label>
+                <select id="slogan-font" class="w-full p-2 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-secondary-bg focus:border-secondary-bg">
+                    <option value="inter" selected>Inter (Sans-Serif, Default)</option>
+                    <option value="serif">Playfair Display (Elegant Serif)</option>
+                    <option value="mono">Space Mono (Monospace)</option>
+                    <option value="oswald">Oswald (Condensed Sans)</option>
+                    <option value="pacifico">Pacifico (Fun Script)</option>
+                    <option value="slab">Roboto Slab (Slab Serif)</option>
+                    <option value="lobster">Lobster (Bold Script)</option>
+                    <option value="lora">Lora (Classic Serif)</option>
+                    <option value="montserrat">Montserrat (Geometric Sans)</option>
+                    <option value="fjalla">Fjalla One (Ultra Condensed)</option>
+                    <option value="marker">Permanent Marker (Handwritten)</option>
+                    <option value="bebas">Bebas Neue (All Caps Display)</option>
+                    <option value="dancing">Dancing Script (Flowing Script)</option>
+                    <option value="righteous">Righteous (Geometric Display)</option>
+                    <option value="vollkorn">Vollkorn (Strong Serif)</option>
+                </select>
+
+                <label for="slogan-size" class="block text-sm font-medium text-gray-300 mb-1">Size (px)</label>
+                <input type="range" id="slogan-size" min="10" max="40" value="18" class="range-input">
+                <span id="slogan-size-display" class="text-xs text-gray-400">18px</span>
             </div>
         </div>
-    );
-};
 
-
-// Quiz Builder Component
-const QuizBuilder = ({ quizData, setQuizData, availableNodes, setEditorMode }) => {
-   const [selectedId, setSelectedId] = useState(quizData.startId);
-   const [showColorPanel, setShowColorPanel] = useState(false);
-
-
-   const currentNode = useMemo(() => {
-       if (selectedId.startsWith('q')) {
-           return quizData.questions[selectedId];
-       } else if (selectedId.startsWith('r')) {
-           return quizData.results[selectedId];
-       }
-       return null;
-   }, [selectedId, quizData]);
-
-
-   const isResultNode = selectedId.startsWith('r');
-   
-   const updateQuizTitle = (e) => {
-       setQuizData(prev => ({ ...prev, title: e.target.value }));
-   };
-
-
-   const updateStartId = (e) => {
-       setQuizData(prev => ({ ...prev, startId: e.target.value }));
-   };
-
-
-   const updateNode = (field, value) => {
-       const typeKey = isResultNode ? 'results' : 'questions';
-       setQuizData(prev => ({
-           ...prev,
-           [typeKey]: {
-               ...prev[typeKey],
-               [selectedId]: {
-                   ...prev[typeKey][selectedId],
-                   [field]: value
-               }
-           }
-       }));
-   };
-
-
-   const handleOptionChange = (index, field, value) => {
-       if (isResultNode) return;
-       const newOptions = [...currentNode.options];
-       newOptions[index] = { ...newOptions[index], [field]: value };
-       updateNode('options', newOptions);
-   };
-
-
-   const addOption = () => {
-       if (isResultNode) return;
-       const newId = `o${Date.now()}`;
-       updateNode('options', [...currentNode.options, { id: newId, text: `New Option`, next: quizData.startId }]);
-   };
-
-
-   const removeOption = (index) => {
-       if (isResultNode) return;
-       const newOptions = currentNode.options.filter((_, i) => i !== index);
-       updateNode('options', newOptions);
-   };
-
-
-   const addNode = (type) => {
-       const prefix = type === 'question' ? 'q' : 'r';
-       const newId = `${prefix}${Date.now()}`;
-       if (type === 'question') {
-           setQuizData(prev => ({
-               ...prev,
-               questions: {
-                   ...prev.questions,
-                   [newId]: { text: "New Question Text", options: [{ id: `o${Date.now()}`, text: "Option A", next: prev.startId }] }
-               }
-           }));
-       } else {
-           setQuizData(prev => ({
-               ...prev,
-               results: {
-                   ...prev.results,
-                   [newId]: {
-                       title: "New Result Title",
-                       content: "This is a detailed result based on user answers.",
-                       buttonText: "",
-                       buttonUrl: ""
-                   }
-               }
-           }));
-       }
-       setSelectedId(newId);
-   };
-
-
-   const deleteNode = (idToDelete) => {
-       const typeKey = idToDelete.startsWith('r') ? 'results' : 'questions';
-
-
-       setQuizData(prev => {
-           const newState = { ...prev };
-           newState[typeKey] = Object.fromEntries(
-               Object.entries(newState[typeKey]).filter(([id]) => id !== idToDelete)
-           );
-
-
-           Object.entries(newState.questions).forEach(([qId, question]) => {
-               newState.questions[qId].options = question.options.map(option => ({
-                   ...option,
-                   next: option.next === idToDelete ? newState.startId : option.next
-               }));
-           });
-
-
-           if (idToDelete === selectedId) {
-               const remainingIds = Object.keys(newState.questions);
-               setSelectedId(remainingIds.length > 0 ? remainingIds[0] : '');
-           }
-           if (idToDelete === newState.startId) {
-               const remainingIds = Object.keys(newState.questions);
-               newState.startId = remainingIds.length > 0 ? remainingIds[0] : '';
-           }
-
-
-           return newState;
-       });
-   };
-
-
-   const renderNodeList = (nodes, title, type) => (
-       <div className="space-y-2">
-           <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">{title}</h3>
-           {Object.keys(nodes).map(id => (
-               <div
-                   key={id}
-                   onClick={() => setSelectedId(id)}
-                   className={`p-2 rounded-lg text-sm cursor-pointer transition-all flex items-center justify-between
-                       ${selectedId === id ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-800 hover:bg-gray-700 text-gray-100'}`}
-               >
-                   <span className="truncate">
-                       {type === 'question' ? nodes[id].text : nodes[id].title}
-                   </span>
-                   <Trash2
-                       className={`w-4 h-4 ml-2 transition-all duration-150 ${selectedId === id ? 'text-indigo-200 hover:text-white' : 'text-gray-400 hover:text-red-500'}`}
-                       onClick={(e) => { e.stopPropagation(); deleteNode(id); }}
-                   />
-               </div>
-           ))}
-           <ActionButton
-               onClick={() => addNode(type)}
-               className={`w-full ${type === 'question' ? 'bg-indigo-700 text-white hover:bg-indigo-600' : 'bg-teal-700 text-white hover:bg-teal-600'} text-xs`}
-               icon={Plus}
-           >
-               Add New {type === 'question' ? 'Question' : 'Result'}
-           </ActionButton>
-       </div>
-   );
-
-
-   const renderNodeDetails = () => {
-       if (!currentNode) {
-           return <div className="p-8 text-center text-gray-500">Select a Question or Result to edit its content and logic.</div>;
-       }
-
-
-       return (
-           <div className="space-y-6">
-               <div className="p-4 bg-gray-700 rounded-lg border border-gray-600">
-                   <p className="text-xs font-mono text-gray-400 mb-1">ID: {selectedId}</p>
-                   {isResultNode ? (
-                       <>
-                           <label className="block text-sm font-medium text-gray-300 mb-1">Result Title</label>
-                           <input
-                               type="text"
-                               value={currentNode.title}
-                               onChange={(e) => updateNode('title', e.target.value)}
-                               className="w-full p-2 border border-gray-600 bg-gray-800 text-gray-100 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                           />
-                           
-                           <label className="block text-sm font-medium text-gray-300 mt-4 mb-1">Result Content</label>
-                           <textarea
-                               value={currentNode.content}
-                               onChange={(e) => updateNode('content', e.target.value)}
-                               rows="6"
-                               className="w-full p-2 border border-gray-600 bg-gray-800 text-gray-100 rounded-md focus:ring-teal-500 focus:border-teal-500 whitespace-pre-wrap"
-                           />
-
-
-                           <h4 className="text-base font-semibold text-teal-400 mt-6 pt-4 border-t border-gray-600">Call-to-Action Link</h4>
-                           <label className="block text-sm font-medium text-gray-300 mb-1">Button Text (Optional)</label>
-                           <input
-                               type="text"
-                               value={currentNode.buttonText || ''}
-                               onChange={(e) => updateNode('buttonText', e.target.value)}
-                               className="w-full p-2 border border-gray-600 bg-gray-800 text-gray-100 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                               placeholder="e.g., Download My Plan"
-                           />
-                           <label className="block text-sm font-medium text-gray-300 mt-4 mb-1">Button URL (Must start with http:// or https://)</label>
-                           <input
-                               type="url"
-                               value={currentNode.buttonUrl || ''}
-                               onChange={(e) => updateNode('buttonUrl', e.target.value)}
-                               className="w-full p-2 border border-gray-600 bg-gray-800 text-gray-100 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                               placeholder="https://yourproduct.com"
-                           />
-                       </>
-                   ) : (
-                       <>
-                           <label className="block text-sm font-medium text-gray-300 mb-1">Question Text</label>
-                           <textarea
-                               value={currentNode.text}
-                               onChange={(e) => updateNode('text', e.target.value)}
-                               rows="3"
-                               className="w-full p-2 border border-gray-600 bg-gray-800 text-gray-100 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                           />
-
-
-                           <h4 className="text-base font-semibold text-gray-300 mt-6 mb-3 flex items-center justify-between">
-                               Options & Logic
-                               <ActionButton onClick={addOption} className="bg-indigo-700 text-white hover:bg-indigo-600 p-2 text-xs" icon={Plus}>Add Option</ActionButton>
-                           </h4>
-
-
-                           <div className="space-y-4">
-                               {currentNode.options.map((option, index) => (
-                                   <div key={option.id} className="p-3 border border-indigo-700 rounded-md bg-gray-800 shadow-sm space-y-2">
-                                       <div className="flex items-start">
-                                           <input
-                                               type="text"
-                                               placeholder={`Option ${index + 1} Text`}
-                                               value={option.text}
-                                               onChange={(e) => handleOptionChange(index, 'text', e.target.value)}
-                                               className="w-full p-2 text-sm border border-gray-600 bg-gray-900 text-gray-100 rounded-md mr-2"
-                                           />
-                                           <button onClick={() => removeOption(index)} className="p-2 text-red-400 hover:text-red-500 rounded-full transition"><X className="w-4 h-4" /></button>
-                                       </div>
-
-
-                                       <label className="block text-xs font-medium text-gray-400">Next Step (Question or Result)</label>
-                                       <select
-                                           value={option.next}
-                                           onChange={(e) => handleOptionChange(index, 'next', e.target.value)}
-                                           className="w-full p-2 border border-gray-600 bg-gray-900 text-gray-100 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                       >
-                                           <option value="" disabled>Select a target...</option>
-                                           {Object.keys(availableNodes).map(id => (
-                                               <option key={id} value={id}>
-                                                   {availableNodes[id].type === 'question' ? 'Q: ' : 'R: '}
-                                                   {availableNodes[id].title} ({id})
-                                               </option>
-                                           ))}
-                                       </select>
-                                   </div>
-                               ))}
-                           </div>
-                       </>
-                   )}
-           </div>
-           </div>
-       );
-   };
-
-
-   return (
-       <div className="flex flex-col md:flex-row h-full min-h-[700px] bg-gray-800 rounded-xl shadow-2xl overflow-hidden">
-           <div className="w-full md:w-64 p-4 bg-gray-900 border-r border-gray-700 overflow-y-auto">
-               <div className="mb-6 space-y-3">
-                   <h2 className="text-xl font-bold text-gray-100">Quiz Map</h2>
-                   
-                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Quiz Title</label>
-                   <input
-                       type="text"
-                       value={quizData.title}
-                       onChange={updateQuizTitle}
-                       className="w-full p-2 border border-gray-600 rounded-md text-sm bg-gray-800 text-gray-100 focus:ring-indigo-500"
-                       placeholder="Quiz Title"
-                   />
-
-
-                   {/* NEW: Description Input */}
-                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mt-4">Quiz Description</label>
-                   <textarea
-                       value={quizData.description}
-                       onChange={(e) => setQuizData(prev => ({ ...prev, description: e.target.value }))}
-                       rows="3"
-                       className="w-full p-2 border border-gray-600 rounded-md text-sm bg-gray-800 text-gray-100 focus:ring-indigo-500"
-                       placeholder="A short description for the welcome screen."
-                   />
-
-
-                   {/* NEW: Logo URL Input */}
-                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mt-4">Logo URL (Optional)</label>
-                   <input
-                       type="url"
-                       value={quizData.logoUrl}
-                       onChange={(e) => setQuizData(prev => ({ ...prev, logoUrl: e.target.value }))}
-                       className="w-full p-2 border border-gray-600 rounded-md text-sm bg-gray-800 text-gray-100 focus:ring-indigo-500"
-                       placeholder="https://example.com/logo.png"
-                   />
-
-
-
-
-                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mt-4">Starting Question</label>
-                   <select
-                       value={quizData.startId}
-                       onChange={updateStartId}
-                       className="w-full p-2 border border-gray-600 rounded-md text-sm bg-gray-800 text-gray-100 focus:ring-indigo-500"
-                   >
-                       <option value="" disabled>Select start point...</option>
-                       {Object.keys(quizData.questions).map(id => (
-                           <option key={id} value={id}>
-                               {quizData.questions[id].text} ({id})
-                           </option>
-                       ))}
-                   </select>
-               </div>
-
-
-               <div className="space-y-6">
-                   {renderNodeList(quizData.questions, "Questions", 'question')}
-                   {renderNodeList(quizData.results, "Results", 'result')}
-               </div>
-               
-               <div className="mt-8 pt-4 border-t border-gray-700 space-y-3">
-                    <ActionButton
-                        onClick={() => setShowColorPanel(p => !p)}
-                        className={`w-full text-white ${showColorPanel ? 'bg-orange-600 hover:bg-orange-500' : 'bg-orange-700 hover:bg-orange-600'}`}
-                        icon={Palette}
-                    >
-                        {showColorPanel ? 'Hide Colors' : 'Edit Colors'}
-                    </ActionButton>
-                    <ActionButton
-                        onClick={() => setEditorMode('export')}
-                        className="w-full bg-teal-800 text-white hover:bg-teal-700"
-                        icon={Code}
-                    >
-                        Export Embed HTML
-                    </ActionButton>
-               </div>
-           </div>
-
-
-           <div className="flex-1 p-6 md:p-8 overflow-y-auto">
-               {showColorPanel ? (
-                   <CustomizationPanel quizData={quizData} setQuizData={setQuizData} />
-               ) : (
-                   <>
-                       <h3 className="text-2xl font-bold text-indigo-400 mb-6 border-b pb-2 border-gray-700">
-                           Editing: {isResultNode ? 'Result' : 'Question'} ({selectedId})
-                       </h3>
-                       {renderNodeDetails()}
-                   </>
-               )}
-           </div>
-       </div>
-   );
-};
-
-
-// Export Code Component
-const ExportCode = ({ quizData, setEditorMode }) => {
-   const [copyStatus, setCopyStatus] = useState('Copy Code');
-   const { bgColor, textColor, primaryColor, primaryHover, accentColor } = quizData.colors;
-
-
-   const generateEmbeddableHtml = (data) => {
-       const { colors, ...playerData } = data;
-       const quizJson = JSON.stringify(playerData).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-       const uniqueId = Date.now();
-       
-       return `<!-- Interactive Quiz Blueprint: Embeddable Player (HTML/CSS/JS - WordPress Ready) -->
-<!-- Copy and paste this entire code block into your WordPress page (use the "Custom HTML" or "Code" block) -->
-<div id="quiz-root-${uniqueId}" class="quiz-container">
-   <style>
-       .quiz-container {
-           font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-           padding: 24px;
-           max-width: 540px;
-           margin: 0 auto;
-       }
-       .quiz-card {
-           padding: 2rem;
-           background-color: ${bgColor};
-           border: 1px solid ${accentColor};
-           border-radius: 0.75rem;
-           box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-           transition: all 0.3s ease;
-       }
-       .quiz-question-text {
-           color: ${textColor};
-           font-size: 1.5rem;
-           font-weight: 700;
-           margin-bottom: 1.5rem;
-       }
-       .quiz-option-button {
-           display: flex;
-           align-items: center;
-           justify-content: center;
-           width: 100%;
-           padding: 1rem;
-           margin-top: 0.75rem;
-           background-color: ${primaryColor};
-           color: ${textColor};
-           font-weight: 600;
-           border-radius: 0.5rem;
-           transition: background-color 0.2s, transform 0.1s;
-           cursor: pointer;
-           border: none;
-       }
-       .quiz-option-button:hover {
-           background-color: ${primaryHover};
-       }
-       .quiz-result-title {
-           color: ${accentColor};
-           font-size: 2rem;
-           font-weight: 800;
-           margin-bottom: 1rem;
-           border-bottom: 2px solid ${accentColor};
-           padding-bottom: 0.5rem;
-       }
-       .quiz-result-content, .quiz-result-content p, .quiz-result-content ul {
-           color: ${textColor};
-           white-space: pre-wrap;
-           margin-bottom: 2rem;
-           line-height: 1.6;
-       }
-       .quiz-cta-button {
-           display: flex;
-           align-items: center;
-           justify-content: center;
-           width: 100%;
-           padding: 1rem;
-           background-color: ${accentColor};
-           color: ${bgColor};
-           font-size: 1.125rem;
-           font-weight: 700;
-           border-radius: 0.5rem;
-           transition: background-color 0.3s, box-shadow 0.3s;
-           text-decoration: none;
-           box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
-       }
-       .quiz-cta-button:hover {
-           filter: brightness(1.1);
-       }
-       .quiz-reset-button {
-           display: block;
-           width: 100%;
-           padding: 0.75rem;
-           margin-top: 1rem;
-           background-color: ${primaryColor};
-           color: ${textColor};
-           font-weight: 600;
-           border-radius: 0.5rem;
-           text-align: center;
-           cursor: pointer;
-           border: none;
-       }
-       .quiz-reset-button:hover {
-           background-color: ${primaryHover};
-       }
-       /* New Intro Screen Styles */
-       .quiz-logo {
-           width: 96px;
-           height: 96px;
-           object-fit: contain;
-           margin: 0 auto 1.5rem;
-           border-radius: 0.5rem;
-       }
-       .quiz-title-intro {
-           font-size: 2.25rem;
-           font-weight: 800;
-           margin-bottom: 0.75rem;
-           text-align: center;
-       }
-       .quiz-description-intro {
-           font-size: 1.125rem;
-           line-height: 1.6;
-           margin-bottom: 2rem;
-           text-align: center;
-       }
-       .quiz-start-button {
-           display: flex;
-           align-items: center;
-           justify-content: center;
-           width: 100%;
-           padding: 1rem;
-           font-size: 1.25rem;
-           font-weight: 700;
-           border-radius: 0.5rem;
-           transition: background-color 0.2s, transform 0.1s;
-           cursor: pointer;
-           border: none;
-           background-color: ${accentColor};
-           color: ${bgColor};
-       }
-       .quiz-start-button:hover {
-           filter: brightness(1.1);
-       }
-       .quiz-name-input {
-           width: 100%;
-           padding: 0.75rem;
-           margin-bottom: 1.5rem;
-           border: 1px solid #4B5563;
-           background-color: #1F2937;
-           color: #F3F4F6;
-           border-radius: 0.5rem;
-           outline: none;
-           transition: border-color 0.2s;
-       }
-   </style>
-
-
-   <script>
-       document.addEventListener('DOMContentLoaded', function() {
-           const QUIZ_DATA = ${quizJson};
-           const ROOT_ID = 'quiz-root-${uniqueId}';
-           const rootElement = document.getElementById(ROOT_ID);
-           if (!rootElement) return;
-
-
-           let quizState = 'intro'; // 'intro', 'quiz', 'result'
-           let currentId = QUIZ_DATA.startId;
-           let answers = [];
-           let userName = '';
-
-
-           const availableNodes = {
-                ...Object.keys(QUIZ_DATA.questions).reduce((acc, id) => { acc[id] = { type: 'question', title: QUIZ_DATA.questions[id].text }; return acc; }, {}),
-                ...Object.keys(QUIZ_DATA.results).reduce((acc, id) => { acc[id] = { type: 'result', title: QUIZ_DATA.results[id].title }; return acc; }, {})
-           };
-
-
-           function handleReset() {
-               quizState = 'intro';
-               currentId = QUIZ_DATA.startId;
-               answers = [];
-               userName = '';
-               render();
-           }
-
-
-           function handleStartQuiz() {
-               const nameInput = document.getElementById(\`user-name-input-\${uniqueId}\`);
-               userName = nameInput.value.trim();
-               quizState = 'quiz';
-               render();
-           }
-
-
-           function handleOptionClick(button, nextId) {
-               if (currentId.startsWith('r')) return;
-               
-               answers.push({ qId: currentId, optionId: button.getAttribute('data-id') || 'untracked', next: nextId });
-               currentId = nextId;
-
-
-               if (nextId.startsWith('r')) {
-                   quizState = 'result';
-               }
-               render();
-           }
-
-
-           function renderIntro() {
-               const logoHtml = QUIZ_DATA.logoUrl ? \`<img src="\${QUIZ_DATA.logoUrl}" alt="Quiz Logo" class="quiz-logo" onerror="this.style.display='none'">\` : '';
-               
-               rootElement.innerHTML = \`
-                   <div class="quiz-card" style="border-color: ${primaryColor};">
-                       \${logoHtml}
-                       <h2 class="quiz-title-intro" style="color: ${primaryColor};">\${QUIZ_DATA.title}</h2>
-                       <p class="quiz-description-intro" style="color: ${textColor};">\${QUIZ_DATA.description}</p>
-                       
-                       <div style="margin-top: 1.5rem;">
-                           <label for="user-name-input-\${uniqueId}" style="display: block; font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem; color: ${accentColor};">Your Name (Optional but encouraged):</label>
-                           <input type="text" id="user-name-input-\${uniqueId}" placeholder="Enter your name" class="quiz-name-input">
-                       </div>
-
-
-                       <button class="quiz-start-button" id="quiz-start-\${uniqueId}">
-                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                           Start Quiz
-                       </button>
-                   </div>
-               \`;
-               
-               document.getElementById(\`quiz-start-\${uniqueId}\`).addEventListener('click', handleStartQuiz);
-           }
-           
-           function renderResult(currentNode) {
-               let answerList = answers.map((ans) => {
-                   const question = QUIZ_DATA.questions[ans.qId];
-                   const option = question?.options.find(opt => opt.id === ans.optionId);
-                   return \`<li><span style="font-weight:600;">\${question?.text || 'Unknown Question'}</span>: \${option?.text || 'Unknown Answer'}</li>\`;
-               }).join('');
-
-
-               const userGreeting = userName ? \`<h3 style="color: ${primaryColor}; font-size: 1.125rem; font-weight: 700; margin-bottom: 1rem;">Hello, \${userName}!</h3>\` : '';
-
-
-               rootElement.innerHTML = \`
-                   <div class="quiz-card" style="border-color: ${accentColor};">
-                       \${userGreeting}
-                       <h2 class="quiz-result-title">\${currentNode.title}</h2>
-                       <p class="quiz-result-content">\${currentNode.content}</p>
-                       
-                       <h3 style="color:${accentColor}; font-weight:600; margin-bottom:0.5rem;">Your Journey:</h3>
-                       <ul class="quiz-result-content" style="list-style: disc; margin-left: 20px;">\${answerList}</ul>
-
-
-                       \${currentNode.buttonUrl && currentNode.buttonText ? \`
-                           <a href="\${currentNode.buttonUrl}" target="_blank" rel="noopener noreferrer" class="quiz-cta-button">
-                               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                               \${currentNode.buttonText}
-                           </a>
-                       \` : ''}
-                       <button class="quiz-reset-button" id="quiz-reset-\${uniqueId}">Start New Quiz</button>
-                   </div>
-               \`;
-               
-               document.getElementById(\`quiz-reset-\${uniqueId}\`).addEventListener('click', handleReset);
-           }
-           
-           function renderQuestion(currentNode) {
-               let optionsHtml = currentNode.options.map(option => {
-                   const targetType = availableNodes[option.next]?.type === 'result' ? 'R' : 'Q';
-                   return \`
-                       <button class="quiz-option-button" data-next="\${option.next}" data-id="\${option.id}">
-                           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                           \${option.text}
-                           <span style="margin-left: auto; font-size: 0.75rem; opacity: 0.8;"> (\${targetType}) </span>
-                       </button>
-                   \`;
-               }).join('');
-
-
-               rootElement.innerHTML = \`
-                   <div class="quiz-card" style="border-color: ${primaryColor};">
-                       <h2 class="quiz-question-text">\${currentNode.text}</h2>
-                       <div>\${optionsHtml}</div>
-                   </div>
-               \`;
-
-
-               rootElement.querySelectorAll('.quiz-option-button').forEach(button => {
-                   button.addEventListener('click', function() {
-                       handleOptionClick(this, this.getAttribute('data-next'));
-                   });
-               });
-           }
-           
-           function render() {
-               if (quizState === 'intro') {
-                   renderIntro();
-                   return;
-               }
-
-
-               const currentNode = QUIZ_DATA.questions[currentId] || QUIZ_DATA.results[currentId];
-               if (!currentNode) {
-                   rootElement.innerHTML = \`<div class="quiz-card"><p style="color:red;">Error: Missing node \${currentId}</p></div>\`;
-                   return;
-               }
-
-
-               if (currentId.startsWith('r')) {
-                   renderResult(currentNode);
-               } else {
-                   renderQuestion(currentNode);
-               }
-           }
-
-
-           window.quizReset_${uniqueId} = handleReset; // Expose reset function for developer use
-
-
-           render();
-       });
-   </script>
-</div>
-<!-- End Interactive Quiz Blueprint Embed -->`;
-   };
-
-
-   const handleCopy = () => {
-       const code = generateEmbeddableHtml(quizData);
-       try {
-           if (navigator.clipboard) {
-                navigator.clipboard.writeText(code).then(() => {
-                   setCopyStatus('Copied!');
-                   setTimeout(() => setCopyStatus('Copy Code'), 2000);
-                });
-           } else {
-               const textarea = document.createElement('textarea');
-               textarea.value = code;
-               document.body.appendChild(textarea);
-               textarea.select();
-               document.execCommand('copy');
-               document.body.removeChild(textarea);
-               
-               setCopyStatus('Copied!');
-               setTimeout(() => setCopyStatus('Copy Code'), 2000);
-           }
-       } catch (err) {
-           console.error('Failed to copy text: ', err);
-           setCopyStatus('Error Copying!');
-           setTimeout(() => setCopyStatus('Copy Code'), 3000);
-       }
-   };
-   
-   const embedCode = generateEmbeddableHtml(quizData);
-
-
-   return (
-       <div className="p-8 bg-gray-800 rounded-xl shadow-2xl border border-gray-700">
-           <h3 className="text-2xl font-bold text-teal-400 mb-6 border-b pb-2 border-gray-700 flex items-center">
-               <Code className="w-6 h-6 mr-3" />
-               Embeddable HTML Code
-           </h3>
-           <p className="text-gray-300 mb-4">
-               This is the **full, self-contained HTML code** you requested. Just copy and paste this entire block into a **Custom HTML** block on your WordPress page.
-           </p>
-           
-           <div className="relative">
-               <pre className="bg-gray-900 p-4 rounded-lg text-sm text-green-300 overflow-x-auto max-h-[500px] border border-gray-700">
-                   <code>{embedCode}</code>
-               </pre>
-               <ActionButton
-                   onClick={handleCopy}
-                   className={`absolute top-4 right-4 text-white ${copyStatus === 'Copied!' ? 'bg-green-600 hover:bg-green-500' : 'bg-indigo-600 hover:bg-indigo-500'}`}
-                   icon={Clipboard}
-               >
-                   {copyStatus}
-               </ActionButton>
-           </div>
-           
-           <div className="mt-6 text-center">
-                <ActionButton
-                   onClick={() => setEditorMode('builder')}
-                   className="bg-gray-700 text-gray-100 hover:bg-gray-600"
-                   icon={Settings}
-               >
-                   Back to Builder Mode
-               </ActionButton>
-           </div>
-       </div>
-   );
-};
-
-
-// Main App Component
-const App = () => {
-   const [editorMode, setEditorMode] = useState('builder');
-   const [quizData, setQuizData] = useState(INITIAL_QUIZ_DATA);
-   const [saveStatus, setSaveStatus] = useState('Ready');
-
-
-   // Function to save data, with fallback to localStorage
-   const saveQuizData = useCallback(async (data) => {
-       setSaveStatus('Saving...');
-       const dataString = JSON.stringify(data);
-       try {
-           // Attempt to use window.storage if available (for Canvas environment)
-           if (window.storage && window.storage.set) {
-               await window.storage.set('quiz-data', dataString);
-           } else {
-               // Fallback to standard browser localStorage
-               localStorage.setItem('quiz-data', dataString);
-           }
-           setSaveStatus('Saved!');
-           setTimeout(() => setSaveStatus('Ready'), 2000);
-       } catch (error) {
-           console.error("Error saving:", error);
-           setSaveStatus('Save Failed!');
-           setTimeout(() => setSaveStatus('Error'), 3000);
-       }
-   }, []);
-
-
-   const debouncedSave = useDebounce(saveQuizData, 1000);
-
-
-   useEffect(() => {
-       const loadData = async () => {
-           try {
-               let storedData = null;
-               
-               // Attempt to load from window.storage first
-               if (window.storage && window.storage.get) {
-                   const result = await window.storage.get('quiz-data');
-                   if (result && result.value) {
-                       storedData = result.value;
-                   }
-               } else {
-                   // Fallback to standard browser localStorage
-                   storedData = localStorage.getItem('quiz-data');
-               }
-
-
-               if (storedData) {
-                   const data = JSON.parse(storedData);
-                   // Merge with defaults to ensure all keys are present
-                   const mergedData = {
-                       ...INITIAL_QUIZ_DATA,
-                       ...data,
-                       colors: {
-                           ...INITIAL_COLORS,
-                           ...(data.colors || {})
-                       }
-                   };
-                   setQuizData(mergedData);
-               }
-           } catch (error) {
-               console.log("No valid saved data found or JSON parse error, using defaults:", error);
-           }
-       };
-       loadData();
-   }, []);
-
-
-   useEffect(() => {
-       debouncedSave(quizData);
-   }, [quizData, debouncedSave]);
-
-
-   const availableNodes = useMemo(() => {
-       if (!quizData) return {};
-       const qNodes = Object.keys(quizData.questions).reduce((acc, id) => {
-           acc[id] = { title: quizData.questions[id].text, type: 'question' };
-           return acc;
-       }, {});
-       const rNodes = Object.keys(quizData.results).reduce((acc, id) => {
-           acc[id] = { title: quizData.results[id].title, type: 'result' };
-           return acc;
-       }, {});
-       return { ...qNodes, ...rNodes };
-   }, [quizData]);
-
-
-   const renderContent = () => {
-       if (editorMode === 'builder') {
-           return (
-               <QuizBuilder
-                   quizData={quizData}
-                   setQuizData={setQuizData}
-                   availableNodes={availableNodes}
-                   setEditorMode={setEditorMode}
-               />
-           );
-       }
-       if (editorMode === 'player') {
-           return (
-               <div className="flex flex-col items-center pt-12">
-                   <h2 className="text-3xl font-bold text-gray-100 mb-8 border-b-4 border-teal-500 pb-2">{quizData.title}</h2>
-                   <QuizPlayer
-                       quizData={quizData}
-                       onReset={() => setEditorMode('builder')}
-                       availableNodes={availableNodes}
-                   />
-               </div>
-           );
-       }
-       if (editorMode === 'export') {
-           return (
-               <ExportCode
-                   quizData={quizData}
-                   setEditorMode={setEditorMode}
-               />
-           );
-       }
-       return null;
-   };
-
-
-   return (
-       <div className="min-h-screen bg-gray-900 p-4 sm:p-6 font-sans text-gray-100">
-           <div className="mb-4 flex justify-between items-center p-3 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
-               <h1 className="text-xl font-extrabold text-gray-100 flex items-center">
-                   <Send className="w-6 h-6 mr-3 text-indigo-400" />
-                   Quiz Blueprint Tool
-               </h1>
-               <div className="flex items-center space-x-3">
-                   <span className={`text-sm font-medium ${saveStatus === 'Saved!' ? 'text-green-400' : saveStatus.includes('Failed') ? 'text-red-400' : 'text-gray-400'}`}>
-                       <Save className="inline w-4 h-4 mr-1"/> {saveStatus}
-                   </span>
-                   <ActionButton
-                       onClick={() => setEditorMode(editorMode === 'builder' ? 'player' : 'builder')}
-                       className={`text-white transition-all ${editorMode === 'builder' ? 'bg-teal-500 hover:bg-teal-600' : 'bg-indigo-500 hover:bg-indigo-600'}`}
-                       icon={editorMode === 'builder' ? Play : Settings}
-                   >
-                       Switch to {editorMode === 'builder' ? 'Player' : 'Builder'} Mode
-                   </ActionButton>
-               </div>
-           </div>
-           
-           {renderContent()}
-       </div>
-   );
-};
-
-
-export default App;
-
+        <!-- Cover Preview Panel - FIXED: Now properly constrained to viewport -->
+        <div class="lg:w-3/5 w-full flex-shrink-0 flex items-center justify-center p-2 lg:h-full">
+            <!-- FIXED: Added max-height constraint to ensure full cover is visible -->
+            <div id="cover-preview-container" class="aspect-[1/1.414] shadow-2xl overflow-hidden transition-all duration-300" style="box-sizing: border-box;">
+                
+                <div id="cover-preview" class="flex flex-col h-full w-full">
+                    
+                    <!-- Image Section (UPDATED for Overlay and Grayscale) -->
+                    <div id="image-section" class="overflow-hidden relative" style="flex-grow: 1;">
+                        
+                        <!-- Image Overlay Layer -->
+                        <div id="image-overlay" class="absolute inset-0 z-10 transition-all duration-300 pointer-events-none" style="background-color: rgba(0,0,0,0);"></div>
+
+                        <!-- Placeholder URL adjusted for A4 aspect ratio -->
+                        <img id="cover-image" class="w-full h-full object-cover transition-all duration-300" 
+                            src="https://placehold.co/2480x3508/4CAF50/FFFFFF?text=Upload+Recipe+Image" 
+                            alt="Cookbook Cover Image"
+                            onerror="this.onerror=null; this.src='https://placehold.co/2480x3508/FF5733/FFFFFF?text=Image+Load+Error'"
+                        >
+                    </div>
+
+                    <!-- Divider Line -->
+                    <div id="divider-line" class="w-full transition-all duration-300" style="height: 3px; background-color: #FFFFFF;"></div>
+
+                    <!-- Text Section (UPDATED for Sub-Headline and Gradient) -->
+                    <!-- Added 'relative' to allow absolute positioning if needed, but using flex order instead -->
+                    <div id="text-section" class="flex flex-col justify-center items-center text-center p-8 transition-all duration-300" style="background-color: #4CAF50; flex-grow: 1;">
+                        
+                        <!-- Logo Image Slot (Source Order 1) -->
+                        <img id="logo-image" 
+                            src="https://placehold.co/100x40/000000/FFFFFF?text=LOGO" 
+                            alt="Cookbook Logo" 
+                            class="mb-2 object-contain hidden transition-all duration-300" 
+                            style="max-height: 50px;"
+                            onerror="this.onerror=null; this.src='https://placehold.co/100x40/FF5733/FFFFFF?text=Error'"
+                        />
+                        
+                        <!-- Sub-Headline Element (Source Order 2) - Order is dynamically set by JS -->
+                        <p id="sub-headline-text" class="text-white text-sm tracking-widest font-bold uppercase opacity-80 mb-1 transition-all duration-300" style="font-family: 'Inter', sans-serif; font-size: 14px; color: #FFFFFF;"></p>
+                        
+                        <!-- Headline (Source Order 3) -->
+                        <h1 id="headline" class="font-bold mb-4 leading-none transition-all duration-300" style="color: #FFFFFF; font-size: 64px; font-family: 'Inter', sans-serif;">MONTH TEN</h1>
+                        
+                        <!-- Slogan (Source Order 4) -->
+                        <p id="slogan" class="transition-all duration-300" style="color: #FFFFFF; font-size: 18px; font-family: 'Inter', sans-serif; opacity: 90%;">Discover 15 easy, healthy and tasty recipes, including: breakfast, lunch, dinner, treat and smoothies</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>
