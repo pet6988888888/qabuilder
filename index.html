@@ -32,6 +32,25 @@
             --shadow-card: 0 8px 30px -8px rgba(26, 29, 36, 0.1);
         }
 
+        .dark {
+            --bg: #12141a;
+            --fg: #f0f2f5;
+            --card: #1a1d24;
+            --card-fg: #f0f2f5;
+            --primary: #818cf8;
+            --primary-fg: #ffffff;
+            --secondary: #2d3342;
+            --secondary-fg: #d1d5db;
+            --muted: #2d3342;
+            --muted-fg: #9ca3af;
+            --accent: #34d399;
+            --accent-fg: #ffffff;
+            --destructive: #f87171;
+            --border: #374151;
+            --shadow: 0 4px 20px -4px rgba(129, 140, 248, 0.2);
+            --shadow-card: 0 8px 30px -8px rgba(0, 0, 0, 0.3);
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg);
@@ -49,6 +68,7 @@
         .header {
             text-align: center;
             margin-bottom: 2rem;
+            position: relative;
         }
 
         .header h1 {
@@ -63,6 +83,56 @@
 
         .header p {
             color: var(--muted-fg);
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .theme-toggle-label {
+            font-size: 0.75rem;
+            color: var(--muted-fg);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            background: var(--secondary);
+            border-radius: 13px;
+            cursor: pointer;
+            transition: background 0.3s;
+            border: 1px solid var(--border);
+        }
+
+        .toggle-switch.active {
+            background: var(--primary);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(22px);
+        }
+
+        .toggle-icon {
+            font-size: 1rem;
         }
 
         .tabs {
@@ -475,6 +545,11 @@
         <div class="header">
             <h1>Quiz Blueprint Builder</h1>
             <p>Create beautiful product recommendation quizzes</p>
+            <div class="theme-toggle">
+                <span class="toggle-icon">☀️</span>
+                <div class="toggle-switch" id="themeToggle" onclick="toggleTheme()"></div>
+                <span class="toggle-icon">🌙</span>
+            </div>
         </div>
 
         <div class="tabs">
@@ -490,7 +565,7 @@
                 <div class="section-title">
                     <span>Quiz Settings</span>
                 </div>
-                <div class="grid-2">
+            <div class="grid-2">
                     <div class="form-group">
                         <label class="form-label">Quiz Title</label>
                         <input type="text" class="input" id="quizTitle" placeholder="Find Your Perfect Product">
@@ -503,6 +578,10 @@
                 <div class="form-group">
                     <label class="form-label">Description</label>
                     <textarea class="textarea" id="quizDescription" placeholder="Answer a few questions to find the perfect product for you!"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Logo URL (optional)</label>
+                    <input type="text" class="input" id="logoUrl" placeholder="https://example.com/logo.png">
                 </div>
             </div>
 
@@ -597,11 +676,30 @@
     <div class="toast" id="toast"></div>
 
     <script>
+        // Theme Toggle
+        function toggleTheme() {
+            const body = document.body;
+            const toggle = document.getElementById('themeToggle');
+            body.classList.toggle('dark');
+            toggle.classList.toggle('active');
+            localStorage.setItem('quiz-builder-theme', body.classList.contains('dark') ? 'dark' : 'light');
+        }
+
+        // Initialize theme from localStorage
+        (function initTheme() {
+            const savedTheme = localStorage.getItem('quiz-builder-theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark');
+                document.getElementById('themeToggle').classList.add('active');
+            }
+        })();
+
         // Quiz Data
         let quizData = {
             title: 'Find Your Perfect Product',
             description: 'Answer a few questions to find the perfect product for you!',
             startButton: 'Start Quiz',
+            logoUrl: '',
             colors: {
                 background: '#6366f1',
                 text: '#ffffff',
@@ -635,6 +733,7 @@
                     id: 'r1',
                     title: 'Quick Start Package',
                     description: 'Perfect for busy people who want fast results.',
+                    imageUrl: '',
                     ctaText: 'Get Started',
                     ctaUrl: '#'
                 },
@@ -642,6 +741,7 @@
                     id: 'r2',
                     title: 'Standard Package',
                     description: 'A balanced approach for most users.',
+                    imageUrl: '',
                     ctaText: 'Learn More',
                     ctaUrl: '#'
                 },
@@ -649,13 +749,14 @@
                     id: 'r3',
                     title: 'Premium Package',
                     description: 'The complete solution for dedicated learners.',
+                    imageUrl: '',
                     ctaText: 'View Details',
                     ctaUrl: '#'
                 }
             ]
         };
 
-        let previewState = { screen: 'intro', currentQuestion: 0, answers: [] };
+        let previewState = { screen: 'intro', currentQuestion: 0, answers: [], userName: '' };
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -697,6 +798,10 @@
                 quizData.startButton = e.target.value;
                 saveToStorage();
             });
+            document.getElementById('logoUrl').addEventListener('input', (e) => {
+                quizData.logoUrl = e.target.value;
+                saveToStorage();
+            });
 
             // Color listeners
             ['Bg', 'Text', 'Button', 'ButtonText', 'Accent', 'Progress'].forEach(key => {
@@ -714,6 +819,7 @@
             document.getElementById('quizTitle').value = quizData.title;
             document.getElementById('quizDescription').value = quizData.description;
             document.getElementById('startButton').value = quizData.startButton;
+            document.getElementById('logoUrl').value = quizData.logoUrl || '';
             document.getElementById('colorBg').value = quizData.colors.background;
             document.getElementById('colorText').value = quizData.colors.text;
             document.getElementById('colorButton').value = quizData.colors.button;
@@ -784,6 +890,10 @@
                             <label class="form-label">CTA Button Text</label>
                             <input type="text" class="input" value="${escapeHtml(r.ctaText)}" onchange="updateResult(${ri}, 'ctaText', this.value)">
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Image URL (optional)</label>
+                        <input type="text" class="input" value="${escapeHtml(r.imageUrl || '')}" onchange="updateResult(${ri}, 'imageUrl', this.value)" placeholder="https://example.com/product.jpg">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Description</label>
@@ -864,6 +974,7 @@
                 id,
                 title: 'New Result',
                 description: 'Description of this result.',
+                imageUrl: '',
                 ctaText: 'Learn More',
                 ctaUrl: '#'
             });
@@ -906,9 +1017,15 @@
             container.style.color = c.text;
 
             if (previewState.screen === 'intro') {
+                const logoHtml = quizData.logoUrl ? `<img src="${escapeHtml(quizData.logoUrl)}" alt="Logo" style="max-width: 150px; max-height: 80px; margin-bottom: 1rem; object-fit: contain;">` : '';
                 container.innerHTML = `
+                    ${logoHtml}
                     <div class="quiz-title">${escapeHtml(quizData.title)}</div>
                     <div class="quiz-description">${escapeHtml(quizData.description)}</div>
+                    <div style="margin: 1.5rem 0;">
+                        <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Let's start with your name:</div>
+                        <input type="text" id="previewNameInput" placeholder="Enter your name" style="width: 100%; max-width: 280px; padding: 0.75rem 1rem; border-radius: 0.5rem; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: inherit; font-size: 1rem; text-align: center;" onkeypress="if(event.key==='Enter')startPreviewQuiz()">
+                    </div>
                     <button class="quiz-option" style="background: ${c.button}; color: ${c.buttonText};" onclick="startPreviewQuiz()">${escapeHtml(quizData.startButton)}</button>
                 `;
             } else if (previewState.screen === 'question') {
@@ -939,8 +1056,13 @@
                     container.innerHTML = '<div class="quiz-title">Result not found</div>';
                     return;
                 }
+                const imageHtml = r.imageUrl ? `<img src="${escapeHtml(r.imageUrl)}" alt="${escapeHtml(r.title)}" style="max-width: 200px; max-height: 150px; border-radius: 0.5rem; margin-bottom: 1rem; object-fit: cover;">` : '';
+                const nameGreeting = previewState.userName ? `Thanks, ${escapeHtml(previewState.userName)}! Here Are Your Results.` : 'Here Are Your Results!';
                 container.innerHTML = `
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
+                    <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🎉</div>
+                    <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem;">${nameGreeting}</div>
+                    <div style="font-size: 0.9rem; opacity: 0.85; margin-bottom: 1.25rem;">Based on your answers, here is your personalized recommendation:</div>
+                    ${imageHtml}
                     <div class="quiz-title">${escapeHtml(r.title)}</div>
                     <div class="quiz-description">${escapeHtml(r.description)}</div>
                     <a href="${escapeHtml(r.ctaUrl)}" target="_blank" class="quiz-option" style="background: ${c.accent}; color: #fff; display: inline-block; text-decoration: none; padding: 1rem 2rem;">${escapeHtml(r.ctaText)}</a>
@@ -949,7 +1071,9 @@
         }
 
         function startPreviewQuiz() {
-            previewState = { screen: 'question', currentQuestion: 0, answers: [] };
+            const nameInput = document.getElementById('previewNameInput');
+            const userName = nameInput ? nameInput.value.trim() : '';
+            previewState = { screen: 'question', currentQuestion: 0, answers: [], userName: userName };
             renderQuizPreview();
         }
 
@@ -973,12 +1097,13 @@
         }
 
         function resetPreview() {
-            previewState = { screen: 'intro', currentQuestion: 0, answers: [] };
+            previewState = { screen: 'intro', currentQuestion: 0, answers: [], userName: '' };
             renderQuizPreview();
         }
 
         function generateExportCode() {
             const c = quizData.colors;
+            const logoUrl = quizData.logoUrl || '';
             const code = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -987,6 +1112,7 @@
     <title>${escapeHtml(quizData.title)}</title>
     <style>
         .quiz-container { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 2rem; border-radius: 1rem; text-align: center; background: ${c.background}; color: ${c.text}; }
+        .quiz-logo { max-width: 150px; max-height: 80px; margin-bottom: 1rem; object-fit: contain; }
         .quiz-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
         .quiz-description { margin-bottom: 1.5rem; opacity: 0.9; }
         .quiz-options { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -994,6 +1120,8 @@
         .quiz-option:hover { transform: translateY(-2px); opacity: 0.9; }
         .quiz-cta { background: ${c.accent}; color: #fff; text-decoration: none; display: inline-block; padding: 1rem 2rem; border-radius: 0.5rem; font-weight: 600; }
         .quiz-cta:hover { opacity: 0.9; }
+        .quiz-name-input { width: 100%; max-width: 280px; padding: 0.75rem 1rem; border-radius: 0.5rem; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: inherit; font-size: 1rem; text-align: center; margin: 0.5rem 0 1rem; }
+        .quiz-result-image { max-width: 200px; max-height: 150px; border-radius: 0.5rem; margin-bottom: 1rem; object-fit: cover; }
         .progress-bar { height: 6px; background: rgba(255,255,255,0.3); border-radius: 3px; overflow: hidden; margin-bottom: 0.5rem; }
         .progress-fill { height: 100%; background: ${c.progress}; transition: width 0.3s; }
         .progress-text { font-size: 0.75rem; opacity: 0.8; margin-bottom: 1rem; }
@@ -1002,24 +1130,31 @@
 <body>
     <div class="quiz-container" id="quiz"></div>
     <script>
-        const quizData = ${JSON.stringify({ title: quizData.title, description: quizData.description, startButton: quizData.startButton, questions: quizData.questions, results: quizData.results }, null, 2)};
-        let state = { screen: 'intro', qIndex: 0 };
+        const quizData = ${JSON.stringify({ title: quizData.title, description: quizData.description, startButton: quizData.startButton, logoUrl: logoUrl, questions: quizData.questions, results: quizData.results }, null, 2)};
+        let state = { screen: 'intro', qIndex: 0, userName: '' };
         
         function render() {
             const el = document.getElementById('quiz');
             if (state.screen === 'intro') {
-                el.innerHTML = '<div class="quiz-title">' + quizData.title + '</div><div class="quiz-description">' + quizData.description + '</div><button class="quiz-option" onclick="start()">' + quizData.startButton + '</button>';
+                const logoHtml = quizData.logoUrl ? '<img src="' + quizData.logoUrl + '" alt="Logo" class="quiz-logo">' : '';
+                el.innerHTML = logoHtml + '<div class="quiz-title">' + quizData.title + '</div><div class="quiz-description">' + quizData.description + '</div><div style="font-size:0.9rem;margin-bottom:0.5rem;opacity:0.9">Let\\'s start with your name:</div><input type="text" id="nameInput" class="quiz-name-input" placeholder="Enter your name" onkeypress="if(event.key===\\'Enter\\')start()"><button class="quiz-option" onclick="start()">' + quizData.startButton + '</button>';
             } else if (state.screen === 'question') {
                 const q = quizData.questions[state.qIndex];
                 const progress = (state.qIndex / quizData.questions.length) * 100;
                 el.innerHTML = '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div><div class="progress-text">Question ' + (state.qIndex + 1) + ' of ' + quizData.questions.length + '</div><div class="quiz-title" style="font-size:1.25rem">' + q.text + '</div><div class="quiz-options">' + q.options.map(function(o) { return '<button class="quiz-option" onclick="select(\\'' + o.next + '\\')">' + o.text + '</button>'; }).join('') + '</div>';
             } else if (state.screen === 'result') {
                 const r = quizData.results.find(function(x) { return x.id === state.resultId; });
-                el.innerHTML = '<div style="font-size:3rem;margin-bottom:1rem">🎉</div><div class="quiz-title">' + r.title + '</div><div class="quiz-description">' + r.description + '</div><a href="' + r.ctaUrl + '" class="quiz-cta" target="_blank">' + r.ctaText + '</a>';
+                const imageHtml = r.imageUrl ? '<img src="' + r.imageUrl + '" alt="' + r.title + '" class="quiz-result-image">' : '';
+                const greeting = state.userName ? 'Thanks, ' + state.userName + '! Here Are Your Results.' : 'Here Are Your Results!';
+                el.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.5rem">🎉</div><div style="font-size:1.1rem;font-weight:600;margin-bottom:0.25rem">' + greeting + '</div><div style="font-size:0.9rem;opacity:0.85;margin-bottom:1.25rem">Based on your answers, here is your personalized recommendation:</div>' + imageHtml + '<div class="quiz-title">' + r.title + '</div><div class="quiz-description">' + r.description + '</div><a href="' + r.ctaUrl + '" class="quiz-cta" target="_blank">' + r.ctaText + '</a>';
             }
         }
         
-        function start() { state = { screen: 'question', qIndex: 0 }; render(); }
+        function start() { 
+            const nameInput = document.getElementById('nameInput');
+            state = { screen: 'question', qIndex: 0, userName: nameInput ? nameInput.value.trim() : '' }; 
+            render(); 
+        }
         
         function select(next) {
             if (next.startsWith('r')) { state.screen = 'result'; state.resultId = next; }
